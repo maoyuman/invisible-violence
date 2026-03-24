@@ -26,6 +26,7 @@ Then open [http://localhost:8000](http://localhost:8000).
 - `L`: load calibration preset (localStorage)
 - `D`: toggle debug trajectories
 - `SPACE`: pause/resume emission
+- `-` / `+`: decrease/increase word travel speed (`SHIFT` for larger steps)
 
 ## Basic Git Workflow
 

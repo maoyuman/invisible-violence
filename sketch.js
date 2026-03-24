@@ -23,6 +23,9 @@ const state = {
   debugTrails: false,
   paused: false,
   selectedZone: "mouth",
+  speedMultiplier: 0.72,
+  minSpeedMultiplier: 0.3,
+  maxSpeedMultiplier: 2.4,
   spawnIntervalMs: 140,
   lastSpawnMs: 0,
   maxWords: 180,
@@ -74,7 +77,8 @@ class FlyingWord {
   }
 
   progress(now) {
-    return constrain((now - this.born) / this.life, 0, 1);
+    const elapsed = (now - this.born) * state.speedMultiplier;
+    return constrain(elapsed / this.life, 0, 1);
   }
 
   getPosition(t) {
@@ -122,7 +126,8 @@ class FlyingWord {
   }
 
   isDead(now) {
-    return now - this.born > this.life;
+    const elapsed = (now - this.born) * state.speedMultiplier;
+    return elapsed > this.life;
   }
 }
 
@@ -223,9 +228,9 @@ function drawZoneOverlay(zone, isSelected) {
 function drawHud() {
   const lines = [
     "Invisible Violence - POC",
-    `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()}`,
+    `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x`,
     "C toggle calibration | TAB switch zone | arrows move | [ ] scale | , . rotate",
-    "S save preset | L load preset | D debug trails | SPACE pause emit",
+    "S save preset | L load preset | D debug trails | SPACE pause emit | -/+ speed",
   ];
 
   push();
@@ -280,6 +285,14 @@ function keyPressed() {
   }
   if (keyCode === TAB) {
     state.selectedZone = state.selectedZone === "mouth" ? "ear" : "mouth";
+    return false;
+  }
+  if (key === "-" || key === "_") {
+    changeSpeed(-1);
+    return false;
+  }
+  if (key === "=" || key === "+") {
+    changeSpeed(1);
     return false;
   }
 
@@ -395,6 +408,16 @@ function cubicBezier(p0, p1, p2, p3, t) {
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2;
+}
+
+function changeSpeed(direction) {
+  const step = keyIsDown(SHIFT) ? 0.25 : 0.1;
+  const next = state.speedMultiplier + direction * step;
+  state.speedMultiplier = constrain(
+    next,
+    state.minSpeedMultiplier,
+    state.maxSpeedMultiplier
+  );
 }
 
 function windowResized() {

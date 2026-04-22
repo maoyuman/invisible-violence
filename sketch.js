@@ -251,6 +251,7 @@ const STORAGE_KEY = "iv-calibration-v1";
 
 const state = {
   calibrationMode: true,
+  debugOverlaysVisible: true,
   debugTrails: false,
   paused: false,
   selectedZone: "mouth",
@@ -390,13 +391,15 @@ function draw() {
     w.draw(now, state.debugTrails);
   }
 
-  if (state.calibrationMode) {
+  if (state.debugOverlaysVisible && state.calibrationMode) {
     drawZoneOverlay(state.zones.mouth, state.selectedZone === "mouth");
     drawZoneOverlay(state.zones.ear, state.selectedZone === "ear");
   }
 
-  drawHud();
-  drawLanguageSpawnOverlay();
+  if (state.debugOverlaysVisible) {
+    drawHud();
+    drawLanguageSpawnOverlay();
+  }
 }
 
 function drawBackground() {
@@ -468,8 +471,8 @@ function drawHud() {
   const lines = [
     "Invisible Violence - POC",
     `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x`,
-    "C toggle calibration | TAB switch zone | arrows move | [ ] scale | , . rotate",
-    "S save preset | L load preset | D debug trails | SPACE pause emit | -/+ speed",
+    "C calibration | O debug overlays | TAB zone | arrows move | [ ] scale | , . rotate",
+    "S save | L load | D debug trails | SPACE pause emit | -/+ speed",
   ];
 
   push();
@@ -566,6 +569,10 @@ function maybeSpawnWords() {
 function keyPressed() {
   if (key === "c" || key === "C") {
     state.calibrationMode = !state.calibrationMode;
+    return false;
+  }
+  if (key === "o" || key === "O") {
+    state.debugOverlaysVisible = !state.debugOverlaysVisible;
     return false;
   }
   if (key === "d" || key === "D") {

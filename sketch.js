@@ -1,20 +1,251 @@
-const WORD_BANK = [
-  "stupid",
-  "worthless",
-  "ugly",
-  "shame",
-  "idiot",
-  "trash",
-  "failure",
-  "weak",
-  "loser",
-  "silence",
-  "hate",
-  "disgust",
-  "go away",
-  "nobody",
-  "pathetic",
+/** Relative spawn frequency per language (e.g. zhTw:Russian ≈ 10:1). */
+const LANG_WEIGHT_ORDER = [
+  "zhTw",
+  "en",
+  "pt",
+  "es",
+  "tl",
+  "fr",
+  "ja",
+  "ko",
+  "ru",
 ];
+const LANG_WEIGHTS = {
+  zhTw: 10,
+  en: 8,
+  pt: 6,
+  es: 4,
+  tl: 3,
+  fr: 3,
+  ja: 2,
+  ko: 2,
+  ru: 1,
+};
+const LANG_WEIGHT_TOTAL = LANG_WEIGHT_ORDER.reduce(
+  (sum, key) => sum + LANG_WEIGHTS[key],
+  0
+);
+const LANG_WEIGHT_MIN = Math.min(
+  ...LANG_WEIGHT_ORDER.map((k) => LANG_WEIGHTS[k])
+);
+const LANG_WEIGHT_MAX = Math.max(
+  ...LANG_WEIGHT_ORDER.map((k) => LANG_WEIGHTS[k])
+);
+
+const LANG_LABELS = {
+  zhTw: "Chinese (TC)",
+  en: "English",
+  pt: "Portuguese",
+  es: "Spanish",
+  tl: "Tagalog",
+  fr: "French",
+  ja: "Japanese",
+  ko: "Korean",
+  ru: "Russian",
+};
+
+/** RGB for flying words + legend (readable on dark background). */
+const LANG_COLORS = {
+  zhTw: [255, 72, 72],
+  en: [88, 156, 255],
+  pt: [64, 220, 128],
+  es: [255, 186, 58],
+  tl: [206, 122, 255],
+  fr: [255, 138, 198],
+  ja: [72, 228, 216],
+  ko: [255, 214, 92],
+  ru: [255, 128, 88],
+};
+
+const WORD_GROUPS = [
+  {
+    en: "stupid",
+    zhTw: "笨",
+    pt: "estúpido",
+    ja: "バカ",
+    fr: "stupide",
+    es: "estúpido",
+    tl: "tanga",
+    ko: "바보",
+    ru: "дурак",
+  },
+  {
+    en: "worthless",
+    zhTw: "沒用",
+    pt: "inútil",
+    ja: "役立たず",
+    fr: "bon à rien",
+    es: "inútil",
+    tl: "walang kwenta",
+    ko: "쓸모없는 놈",
+    ru: "никчёмный",
+  },
+  {
+    en: "ugly",
+    zhTw: "醜",
+    pt: "feio",
+    ja: "ブサイク",
+    fr: "moche",
+    es: "feo",
+    tl: "pangit",
+    ko: "못생긴 놈",
+    ru: "урод",
+  },
+  {
+    en: "shame",
+    zhTw: "羞恥",
+    pt: "vergonha",
+    ja: "恥",
+    fr: "honte",
+    es: "vergüenza",
+    tl: "kahihiyan",
+    ko: "수치",
+    ru: "стыд",
+  },
+  {
+    en: "idiot",
+    zhTw: "白痴",
+    pt: "idiota",
+    ja: "アホ",
+    fr: "idiot",
+    es: "idiota",
+    tl: "gago",
+    ko: "멍청이",
+    ru: "идиот",
+  },
+  {
+    en: "trash",
+    zhTw: "垃圾",
+    pt: "lixo",
+    ja: "クズ",
+    fr: "ordure",
+    es: "basura",
+    tl: "basura",
+    ko: "쓰레기",
+    ru: "мусор",
+  },
+  {
+    en: "failure",
+    zhTw: "失敗者",
+    pt: "fracassado",
+    ja: "負け犬",
+    fr: "raté",
+    es: "fracasado",
+    tl: "palpak",
+    ko: "실패자",
+    ru: "неудачник",
+  },
+  {
+    en: "weak",
+    zhTw: "軟弱",
+    pt: "fraco",
+    ja: "弱虫",
+    fr: "faible",
+    es: "débil",
+    tl: "mahina",
+    ko: "약골",
+    ru: "слабак",
+  },
+  {
+    en: "loser",
+    zhTw: "魯蛇",
+    pt: "perdedor",
+    ja: "負け犬",
+    fr: "perdant",
+    es: "perdedor",
+    tl: "talunan",
+    ko: "루저",
+    ru: "лузер",
+  },
+  {
+    en: "silence",
+    zhTw: "沉默",
+    pt: "silêncio",
+    ja: "沈黙",
+    fr: "silence",
+    es: "silencio",
+    tl: "katahimikan",
+    ko: "침묵",
+    ru: "молчание",
+  },
+  {
+    en: "hate",
+    zhTw: "憎恨",
+    pt: "ódio",
+    ja: "憎しみ",
+    fr: "haine",
+    es: "odio",
+    tl: "poot",
+    ko: "증오",
+    ru: "ненависть",
+  },
+  {
+    en: "disgust",
+    zhTw: "厭惡",
+    pt: "nojo",
+    ja: "嫌悪",
+    fr: "dégoût",
+    es: "asco",
+    tl: "suklam",
+    ko: "혐오",
+    ru: "отвращение",
+  },
+  {
+    en: "go away",
+    zhTw: "走開",
+    pt: "some daqui",
+    ja: "あっち行け",
+    fr: "casse-toi",
+    es: "vete",
+    tl: "umalis ka",
+    ko: "꺼져",
+    ru: "убирайся",
+  },
+  {
+    en: "nobody",
+    zhTw: "無名小卒",
+    pt: "um zero",
+    ja: "雑魚",
+    fr: "un zéro",
+    es: "un don nadie",
+    tl: "walang kwenta",
+    ko: "한낱 인간",
+    ru: "ничтожество",
+  },
+  {
+    en: "pathetic",
+    zhTw: "可悲",
+    pt: "patético",
+    ja: "みじめ",
+    fr: "pathétique",
+    es: "patético",
+    tl: "kaawa-awa",
+    ko: "한심한",
+    ru: "жалкий",
+  },
+];
+
+function pickRandomLang() {
+  let r = random(LANG_WEIGHT_TOTAL);
+  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
+    const key = LANG_WEIGHT_ORDER[i];
+    r -= LANG_WEIGHTS[key];
+    if (r < 0) {
+      return key;
+    }
+  }
+  return LANG_WEIGHT_ORDER[LANG_WEIGHT_ORDER.length - 1];
+}
+
+/** Pick language by weight, then a random concept in that language. */
+function pickWeightedRandomWord() {
+  const lang = pickRandomLang();
+  const g = random(WORD_GROUPS);
+  return { text: g[lang], lang };
+}
+
+const FONT_STACK =
+  '"Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "Noto Sans", sans-serif';
 
 const STORAGE_KEY = "iv-calibration-v1";
 
@@ -30,6 +261,7 @@ const state = {
   lastSpawnMs: 0,
   maxWords: 180,
   words: [],
+  langSpawnCounts: Object.fromEntries(LANG_WEIGHT_ORDER.map((k) => [k, 0])),
   zones: {
     mouth: {
       x: 300,
@@ -55,8 +287,9 @@ const state = {
 };
 
 class FlyingWord {
-  constructor(text, fromZone, toZone) {
+  constructor(text, fromZone, toZone, lang) {
     this.text = text;
+    this.lang = lang;
     this.fromZone = fromZone;
     this.toZone = toZone;
 
@@ -70,7 +303,9 @@ class FlyingWord {
 
     this.life = random(2200, 4300);
     this.born = millis();
-    this.size = random(15, 34);
+    const w = LANG_WEIGHTS[lang] ?? LANG_WEIGHT_MIN;
+    const mid = map(w, LANG_WEIGHT_MIN, LANG_WEIGHT_MAX, 15, 38);
+    this.size = constrain(random(mid - 5, mid + 10), 10, 52);
     this.alpha = random(165, 240);
     this.jitter = random(0.6, 2.0);
     this.rotation = random(-0.2, 0.2);
@@ -118,9 +353,12 @@ class FlyingWord {
     rotate(this.rotation + sin(now * 0.002 + this.born) * 0.06);
     textAlign(CENTER, CENTER);
     textSize(this.size);
-    fill(255, 30);
+    drawingContext.font = `bold ${this.size}px ${FONT_STACK}`;
+    const col = LANG_COLORS[this.lang] || [255, 90, 120];
+    const [r, g, b] = col;
+    fill(r * 0.22 + 18, g * 0.22 + 12, b * 0.22 + 18, min(140, a * 0.45));
     text(this.text, 1.8, 1.8);
-    fill(255, 35, 80, a);
+    fill(r, g, b, a);
     text(this.text, 0, 0);
     pop();
   }
@@ -134,7 +372,7 @@ class FlyingWord {
 function setup() {
   const c = createCanvas(windowWidth, windowHeight);
   c.parent("app");
-  textFont("Helvetica");
+  textFont("Noto Sans TC");
   textStyle(BOLD);
   loadCalibration();
 }
@@ -158,6 +396,7 @@ function draw() {
   }
 
   drawHud();
+  drawLanguageSpawnOverlay();
 }
 
 function drawBackground() {
@@ -245,6 +484,65 @@ function drawHud() {
   pop();
 }
 
+function drawLanguageSpawnOverlay() {
+  const pad = 12;
+  const panelW = min(300, width - 24);
+  const rowH = 17;
+  const titleH = 24;
+  const footerH = 20;
+  const n = LANG_WEIGHT_ORDER.length;
+  const panelH = titleH + n * rowH + footerH + 12;
+
+  let totalSpawns = 0;
+  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
+    totalSpawns += state.langSpawnCounts[LANG_WEIGHT_ORDER[i]];
+  }
+
+  const x0 = width - panelW - pad;
+  const y0 = pad;
+  const xRight = x0 + panelW - 10;
+
+  push();
+  noStroke();
+  fill(0, 130);
+  rect(x0, y0, panelW, panelH, 10);
+  fill(255, 230);
+  textStyle(BOLD);
+  textSize(13);
+  textAlign(LEFT, TOP);
+  text("Spawns by language", x0 + 10, y0 + 8);
+
+  textStyle(NORMAL);
+  textSize(12);
+  let y = y0 + titleH;
+
+  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
+    const key = LANG_WEIGHT_ORDER[i];
+    const c = state.langSpawnCounts[key];
+    const share =
+      totalSpawns > 0 ? ((100 * c) / totalSpawns).toFixed(1) : "—";
+    const target = ((100 * LANG_WEIGHTS[key]) / LANG_WEIGHT_TOTAL).toFixed(1);
+
+    const [lr, lg, lb] = LANG_COLORS[key];
+    noStroke();
+    fill(lr, lg, lb, 255);
+    circle(x0 + 15, y + 7, 7);
+    textAlign(LEFT, TOP);
+    fill(lr, lg, lb, 255);
+    text(`${LANG_LABELS[key]}`, x0 + 26, y);
+    fill(220, 215, 235, 255);
+    textAlign(RIGHT, TOP);
+    text(`${c}   ${share}% / ${target}%`, xRight, y);
+    y += rowH;
+  }
+
+  fill(255, 180);
+  textSize(11);
+  textAlign(LEFT, TOP);
+  text(`Total spawns: ${totalSpawns}  (weights sum to ${LANG_WEIGHT_TOTAL})`, x0 + 10, y + 4);
+  pop();
+}
+
 function maybeSpawnWords() {
   const now = millis();
   if (now - state.lastSpawnMs < state.spawnIntervalMs) {
@@ -256,8 +554,11 @@ function maybeSpawnWords() {
 
   const count = random() < 0.18 ? 2 : 1;
   for (let i = 0; i < count; i += 1) {
-    const word = random(WORD_BANK);
-    state.words.push(new FlyingWord(word, state.zones.mouth, state.zones.ear));
+    const { text: word, lang } = pickWeightedRandomWord();
+    state.langSpawnCounts[lang] += 1;
+    state.words.push(
+      new FlyingWord(word, state.zones.mouth, state.zones.ear, lang)
+    );
   }
   state.lastSpawnMs = now;
 }

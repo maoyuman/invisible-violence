@@ -15,13 +15,6 @@ python3 bridge_server.py
 
 Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
-## Background video
-
-Looping footage fills the canvas **under** the flying words. Two elliptical **masks** match the mouth and ear zones so the video does not cover those sculptures.
-
-- Expected path: `assets/background-video.mp4`
-- The MP4 is listed in `.gitignore` (large file); copy yours into `assets/` locally. See `assets/README.txt`.
-
 ## Phone/iPad Remote Controller
 
 - Main display page: `/index.html`
@@ -29,11 +22,12 @@ Looping footage fills the canvas **under** the flying words. Two elliptical **ma
 - Start the server with `python3 bridge_server.py --port 8899` (this serves both pages + control API).
 - For phone/iPad, open `http://YOUR_COMPUTER_IP:8899/controller.html` on the same Wi-Fi.
 - Keep the main visual running on `http://YOUR_COMPUTER_IP:8899/index.html` (or localhost on your computer browser).
+- Background video for the controller: copy your file to `assets/ipad-background.mov` (see `assets/README.txt`). That path is **gitignored** and will not be uploaded to GitHub.
 
 ## Controls
 
-- On-screen `PLEASE CLICK` button: increase active language count
-- On-screen `PLEASE LONG PRESS` button: decrease active language count while holding
+- Controller `Click` (left): increase active language count
+- Controller `Long press` (right): decrease active language count while holding
 - `C`: toggle calibration overlay
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone

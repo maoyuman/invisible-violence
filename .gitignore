@@ -1,2 +1,6 @@
 # Large background video — copy locally (see README).
 assets/background-video.mp4
+
+# iPad controller background (.MOV is large; keep local only).
+assets/ipad-background.mov
+assets/ipad-background.MOV

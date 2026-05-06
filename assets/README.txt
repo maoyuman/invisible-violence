@@ -1,5 +1,11 @@
-Place your background loop here as:
+iPad controller background
+--------------------------
+Place your video here as:
 
-  background-video.mp4
+  ipad-background.mov
 
-This file is gitignored because it is large. Copy from your machine into this folder.
+Example (from Desktop):
+
+  cp "/Users/maoyuman/Desktop/iPad background video.MOV" assets/ipad-background.mov
+
+This file is listed in .gitignore so it is not pushed to GitHub.

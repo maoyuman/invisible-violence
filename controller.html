@@ -6,16 +6,32 @@
     <title>Language Remote Controller</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
-    <main class="mobile-controls" aria-label="Remote language controls">
-      <button id="click-btn" class="control-button" type="button">
-        PLEASE CLICK
-      </button>
-      <button id="long-press-btn" class="control-button" type="button">
-        PLEASE LONG PRESS
-      </button>
-      <p id="status-text" class="status-text">Please click the button to see what changes in the screen.</p>
+  <body class="controller-page">
+    <video
+      id="bg-video"
+      class="controller-bg-video"
+      autoplay
+      muted
+      loop
+      playsinline
+      webkit-playsinline
+      aria-hidden="true"
+    >
+      <source src="assets/ipad-background.mov" type="video/quicktime" />
+    </video>
+    <main class="controller-ui" aria-label="Remote language controls">
+      <div class="controller-button-row">
+        <button id="click-btn" class="control-button controller-btn-side" type="button">
+          Click
+        </button>
+        <button id="long-press-btn" class="control-button controller-btn-side" type="button">
+          Long press
+        </button>
+      </div>
+      <p id="status-text" class="controller-status-text">
+        Please click the button to see what changes in the screen.
+      </p>
     </main>
     <script src="controller.js"></script>
   </body>
-  </html>
+</html>

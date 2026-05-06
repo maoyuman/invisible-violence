@@ -1,9 +1,13 @@
 const LONG_PRESS_DELAY_MS = 450;
 const LONG_PRESS_REPEAT_MS = 260;
 
+const INITIAL_STATUS_TEXT =
+  "Please click the button to see what changes in the screen.";
+
 const clickBtn = document.getElementById("click-btn");
 const longPressBtn = document.getElementById("long-press-btn");
 const statusText = document.getElementById("status-text");
+const bgVideo = document.getElementById("bg-video");
 
 const pressState = {
   active: false,
@@ -60,8 +64,12 @@ const endLongPress = () => {
   window.clearInterval(pressState.repeatId);
   pressState.timerId = null;
   pressState.repeatId = null;
-  statusText.textContent = "Ready";
+  statusText.textContent = INITIAL_STATUS_TEXT;
 };
+
+if (bgVideo) {
+  bgVideo.play().catch(() => {});
+}
 
 longPressBtn.addEventListener("pointerdown", beginLongPress);
 longPressBtn.addEventListener("pointerup", endLongPress);

@@ -226,15 +226,20 @@ const WORD_GROUPS = [
 ];
 
 function pickRandomLang() {
-  let r = random(LANG_WEIGHT_TOTAL);
-  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
-    const key = LANG_WEIGHT_ORDER[i];
+  const activeKeys = getActiveLanguageKeys();
+  const activeWeightTotal = activeKeys.reduce(
+    (sum, key) => sum + LANG_WEIGHTS[key],
+    0
+  );
+  let r = random(activeWeightTotal || LANG_WEIGHT_TOTAL);
+  for (let i = 0; i < activeKeys.length; i += 1) {
+    const key = activeKeys[i];
     r -= LANG_WEIGHTS[key];
     if (r < 0) {
       return key;
     }
   }
-  return LANG_WEIGHT_ORDER[LANG_WEIGHT_ORDER.length - 1];
+  return activeKeys[activeKeys.length - 1] || LANG_WEIGHT_ORDER[0];
 }
 
 /** Pick language by weight, then a random concept in that language. */
@@ -261,6 +266,7 @@ const state = {
   spawnIntervalMs: 140,
   lastSpawnMs: 0,
   maxWords: 180,
+  activeLanguageCount: LANG_WEIGHT_ORDER.length,
   words: [],
   langSpawnCounts: Object.fromEntries(LANG_WEIGHT_ORDER.map((k) => [k, 0])),
   zones: {
@@ -286,6 +292,15 @@ const state = {
     },
   },
 };
+
+const LONG_PRESS_DELAY_MS = 450;
+const LONG_PRESS_REPEAT_MS = 260;
+const longPressState = {
+  timerId: null,
+  repeatId: null,
+  active: false,
+};
+let remoteLastCommandId = 0;
 
 class FlyingWord {
   constructor(text, fromZone, toZone, lang) {
@@ -376,6 +391,8 @@ function setup() {
   textFont("Noto Sans TC");
   textStyle(BOLD);
   loadCalibration();
+  setupLanguageControlButtons();
+  setupRemoteCommandPolling();
 }
 
 function draw() {
@@ -468,9 +485,11 @@ function drawZoneOverlay(zone, isSelected) {
 }
 
 function drawHud() {
+  const activeKeys = getActiveLanguageKeys();
   const lines = [
     "Invisible Violence - POC",
     `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x`,
+    `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
     "C calibration | O debug overlays | TAB zone | arrows move | [ ] scale | , . rotate",
     "S save | L load | D debug trails | SPACE pause emit | -/+ speed",
   ];
@@ -478,7 +497,7 @@ function drawHud() {
   push();
   noStroke();
   fill(0, 130);
-  rect(14, 14, 640, 92, 10);
+  rect(14, 14, 710, 112, 10);
   fill(255, 220);
   textStyle(NORMAL);
   textSize(14);
@@ -493,12 +512,13 @@ function drawLanguageSpawnOverlay() {
   const rowH = 17;
   const titleH = 24;
   const footerH = 20;
-  const n = LANG_WEIGHT_ORDER.length;
+  const activeKeys = getActiveLanguageKeys();
+  const n = activeKeys.length;
   const panelH = titleH + n * rowH + footerH + 12;
 
   let totalSpawns = 0;
-  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
-    totalSpawns += state.langSpawnCounts[LANG_WEIGHT_ORDER[i]];
+  for (let i = 0; i < activeKeys.length; i += 1) {
+    totalSpawns += state.langSpawnCounts[activeKeys[i]];
   }
 
   const x0 = width - panelW - pad;
@@ -518,13 +538,17 @@ function drawLanguageSpawnOverlay() {
   textStyle(NORMAL);
   textSize(12);
   let y = y0 + titleH;
+  const activeWeightTotal = activeKeys.reduce(
+    (sum, key) => sum + LANG_WEIGHTS[key],
+    0
+  );
 
-  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
-    const key = LANG_WEIGHT_ORDER[i];
+  for (let i = 0; i < activeKeys.length; i += 1) {
+    const key = activeKeys[i];
     const c = state.langSpawnCounts[key];
     const share =
       totalSpawns > 0 ? ((100 * c) / totalSpawns).toFixed(1) : "—";
-    const target = ((100 * LANG_WEIGHTS[key]) / LANG_WEIGHT_TOTAL).toFixed(1);
+    const target = ((100 * LANG_WEIGHTS[key]) / activeWeightTotal).toFixed(1);
 
     const [lr, lg, lb] = LANG_COLORS[key];
     noStroke();
@@ -542,7 +566,11 @@ function drawLanguageSpawnOverlay() {
   fill(255, 180);
   textSize(11);
   textAlign(LEFT, TOP);
-  text(`Total spawns: ${totalSpawns}  (weights sum to ${LANG_WEIGHT_TOTAL})`, x0 + 10, y + 4);
+  text(
+    `Total spawns: ${totalSpawns}  (weights sum to ${activeWeightTotal})`,
+    x0 + 10,
+    y + 4
+  );
   pop();
 }
 
@@ -726,6 +754,87 @@ function changeSpeed(direction) {
     state.minSpeedMultiplier,
     state.maxSpeedMultiplier
   );
+}
+
+function getActiveLanguageKeys() {
+  return LANG_WEIGHT_ORDER.slice(0, state.activeLanguageCount);
+}
+
+function changeActiveLanguageCount(step) {
+  const next = constrain(
+    state.activeLanguageCount + step,
+    1,
+    LANG_WEIGHT_ORDER.length
+  );
+  state.activeLanguageCount = next;
+}
+
+function setupLanguageControlButtons() {
+  const clickBtn = document.getElementById("click-btn");
+  const longPressBtn = document.getElementById("long-press-btn");
+  if (!clickBtn || !longPressBtn) {
+    return;
+  }
+
+  clickBtn.addEventListener("click", () => changeActiveLanguageCount(1));
+
+  const beginLongPress = (event) => {
+    event.preventDefault();
+    if (longPressState.active) {
+      return;
+    }
+    longPressState.active = true;
+    longPressBtn.classList.add("is-holding");
+    longPressState.timerId = window.setTimeout(() => {
+      changeActiveLanguageCount(-1);
+      longPressState.repeatId = window.setInterval(() => {
+        changeActiveLanguageCount(-1);
+      }, LONG_PRESS_REPEAT_MS);
+    }, LONG_PRESS_DELAY_MS);
+  };
+
+  const endLongPress = () => {
+    if (!longPressState.active) {
+      return;
+    }
+    longPressState.active = false;
+    longPressBtn.classList.remove("is-holding");
+    window.clearTimeout(longPressState.timerId);
+    window.clearInterval(longPressState.repeatId);
+    longPressState.timerId = null;
+    longPressState.repeatId = null;
+  };
+
+  longPressBtn.addEventListener("pointerdown", beginLongPress);
+  longPressBtn.addEventListener("pointerup", endLongPress);
+  longPressBtn.addEventListener("pointercancel", endLongPress);
+  longPressBtn.addEventListener("pointerleave", endLongPress);
+}
+
+function setupRemoteCommandPolling() {
+  window.setInterval(async () => {
+    try {
+      const res = await fetch(`/api/commands?since=${remoteLastCommandId}`);
+      if (!res.ok) {
+        return;
+      }
+      const payload = await res.json();
+      if (!payload || !Array.isArray(payload.commands)) {
+        return;
+      }
+      for (let i = 0; i < payload.commands.length; i += 1) {
+        const cmd = payload.commands[i];
+        if (Number.isFinite(cmd.id)) {
+          remoteLastCommandId = max(remoteLastCommandId, cmd.id);
+        }
+        if (cmd.type === "lang_step" && Number.isFinite(cmd.step)) {
+          changeActiveLanguageCount(cmd.step);
+        }
+      }
+    } catch (_err) {
+      // Ignore temporary network errors while polling.
+    }
+  }, 250);
 }
 
 function windowResized() {

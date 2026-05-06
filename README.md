@@ -10,13 +10,23 @@ Proof-of-concept for a projection-mapped p5.js exhibition:
 From project root:
 
 ```bash
-python3 -m http.server 8000
+python3 bridge_server.py
 ```
 
-Then open [http://localhost:8000](http://localhost:8000).
+Then open [http://localhost:8000/index.html](http://localhost:8000/index.html).
+
+## Phone/iPad Remote Controller
+
+- Main display page: `/index.html`
+- Remote controller page: `/controller.html`
+- Start the server with `python3 bridge_server.py` (this serves both pages + control API).
+- For phone/iPad, open `http://YOUR_COMPUTER_IP:8000/controller.html` on the same Wi-Fi.
+- Keep the main visual running on `http://YOUR_COMPUTER_IP:8000/index.html` (or localhost on your computer browser).
 
 ## Controls
 
+- On-screen `Click (+1 language)` button: increase active language count
+- On-screen `Long Press (-1 language)` button: decrease active language count while holding
 - `C`: toggle calibration overlay
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone

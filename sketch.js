@@ -971,7 +971,7 @@ function drawHud() {
     "Invisible Violence - POC",
     `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
-    "C calibration | O debug overlays | TAB zone | arrows move | [ ] scale | , . rotate",
+    "C calibration | O debug overlays | TAB zone | arrows move | [ ] uniform scale | 7 8 width | 9 0 height | , . rotate",
     "S save | L load | D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ speed",
   ];
 
@@ -1125,6 +1125,7 @@ function keyPressed() {
   const moveStep = keyIsDown(SHIFT) ? 15 : 6;
   const rotateStep = keyIsDown(SHIFT) ? 0.055 : 0.022;
   const scaleStep = keyIsDown(SHIFT) ? 20 : 8;
+  const ellipseAxisStep = keyIsDown(SHIFT) ? 20 : 8;
 
   if (keyCode === LEFT_ARROW) {
     zone.x -= moveStep;
@@ -1152,6 +1153,23 @@ function keyPressed() {
     zone.h += scaleStep;
     return false;
   }
+  // Digit row: use keyCode so SHIFT (larger steps) still matches physical keys.
+  if (keyCode === 55) {
+    zone.w = max(40, zone.w - ellipseAxisStep);
+    return false;
+  }
+  if (keyCode === 56) {
+    zone.w += ellipseAxisStep;
+    return false;
+  }
+  if (keyCode === 57) {
+    zone.h = max(40, zone.h - ellipseAxisStep);
+    return false;
+  }
+  if (keyCode === 48) {
+    zone.h += ellipseAxisStep;
+    return false;
+  }
   if (key === ",") {
     zone.angle -= rotateStep;
     return false;
@@ -1167,8 +1185,52 @@ function saveCalibration() {
   const payload = {
     mouth: state.zones.mouth,
     ear: state.zones.ear,
+    calibrationMode: state.calibrationMode,
+    debugOverlaysVisible: state.debugOverlaysVisible,
+    debugTrails: state.debugTrails,
+    zoneReferenceVisible: state.zoneReferenceVisible,
+    selectedZone: state.selectedZone,
+    speedMultiplier: state.speedMultiplier,
+    activeLanguages: { ...state.activeLanguages },
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function applyLoadedSettings(parsed) {
+  if (typeof parsed.calibrationMode === "boolean") {
+    state.calibrationMode = parsed.calibrationMode;
+  }
+  if (typeof parsed.debugOverlaysVisible === "boolean") {
+    state.debugOverlaysVisible = parsed.debugOverlaysVisible;
+  }
+  if (typeof parsed.debugTrails === "boolean") {
+    state.debugTrails = parsed.debugTrails;
+  }
+  if (typeof parsed.zoneReferenceVisible === "boolean") {
+    state.zoneReferenceVisible = parsed.zoneReferenceVisible;
+  }
+  if (parsed.selectedZone === "mouth" || parsed.selectedZone === "ear") {
+    state.selectedZone = parsed.selectedZone;
+  }
+  if (Number.isFinite(parsed.speedMultiplier)) {
+    state.speedMultiplier = constrain(
+      parsed.speedMultiplier,
+      state.minSpeedMultiplier,
+      state.maxSpeedMultiplier
+    );
+  }
+  if (parsed.activeLanguages && typeof parsed.activeLanguages === "object") {
+    for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
+      const k = LANG_WEIGHT_ORDER[i];
+      if (typeof parsed.activeLanguages[k] === "boolean") {
+        state.activeLanguages[k] = parsed.activeLanguages[k];
+      }
+    }
+    const anyOn = LANG_WEIGHT_ORDER.some((k) => state.activeLanguages[k]);
+    if (!anyOn) {
+      state.activeLanguages[LANG_WEIGHT_ORDER[0]] = true;
+    }
+  }
 }
 
 function loadCalibration() {
@@ -1185,6 +1247,7 @@ function loadCalibration() {
     }
     applyLoadedZone("mouth", parsed.mouth);
     applyLoadedZone("ear", parsed.ear);
+    applyLoadedSettings(parsed);
   } catch (err) {
     setDefaultZonePositions();
   }
@@ -1419,17 +1482,24 @@ function drawBackgroundVideoCover(vid) {
   pop();
 }
 
-/** Punch holes through video + fog — darkest practical output so sculptures stay un-lit by projection. */
+/**
+ * Punch holes through video + fog. In calibration, use SCULPTURE_HOLE_RGB so mapped
+ * areas stay as dark as possible on the projector; in show mode, white fill so zones read clearly.
+ */
 function drawVideoMaskForZone(zone) {
   push();
   translate(zone.x, zone.y);
   rotate(zone.angle);
   noStroke();
-  fill(
-    SCULPTURE_HOLE_RGB[0],
-    SCULPTURE_HOLE_RGB[1],
-    SCULPTURE_HOLE_RGB[2]
-  );
+  if (state.calibrationMode) {
+    fill(
+      SCULPTURE_HOLE_RGB[0],
+      SCULPTURE_HOLE_RGB[1],
+      SCULPTURE_HOLE_RGB[2]
+    );
+  } else {
+    fill(255, 255, 255);
+  }
   ellipse(0, 0, zone.w, zone.h);
   pop();
 }

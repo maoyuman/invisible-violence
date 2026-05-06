@@ -4,7 +4,7 @@ Proof-of-concept for a projection-mapped p5.js exhibition:
 - two configurable zones (`mouth` and `ear`)
 - words emitted from mouth toward ear
 - calibration controls and preset save/load
-- **Sculpture holes:** the mouth and ear ellipses punch through the background video and ambient fog with a solid fill so those pixels stay as dark as possible on the projector (see `SCULPTURE_HOLE_RGB` in `sketch.js`; default pure black). Flying text is not drawn inside those shapes. Main-screen video file: `assets/background-video.mp4` (gitignored; copy locally). Align zones with your sculptures (controls below). Red/blue guides are off by default; press `SPACE` while calibrating.
+- **Sculpture holes:** the mouth and ear ellipses punch through the background video and ambient fog with a solid fill. In **calibration** mode that fill is `SCULPTURE_HOLE_RGB` (default pure black) so mapped areas stay dark on the projector; in **show** mode (`C` toggles) the fill is **white** so the zones read clearly. Flying text is not drawn inside those shapes. Main-screen video file: `assets/background-video.mp4` (gitignored; copy locally). Align zones with your sculptures (controls below). Red/blue guides are off by default; press `SPACE` while calibrating.
 
 ## Run
 
@@ -32,10 +32,12 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 - `C`: toggle calibration overlay
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone
-- `[` / `]`: scale selected zone
+- `[` / `]`: uniform scale (both ellipse axes together)
+- `7` / `8`: decrease / increase ellipse **width** only (`SHIFT` for larger steps)
+- `9` / `0`: decrease / increase ellipse **height** only (`SHIFT` for larger steps)
 - `,` / `.`: rotate selected zone
-- `S`: save calibration preset (localStorage)
-- `L`: load calibration preset (localStorage)
+- `S`: save preset to localStorage (zones, calibration/show mode, debug overlays, red-blue guides, selected zone, speed, active languages)
+- `L`: load that preset from localStorage
 - `D`: toggle debug trajectories
 - `SPACE`: hide/show red-blue mouth/ear reference shapes
 - `P`: pause/resume emission

@@ -25,8 +25,8 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
 ## Controls
 
-- On-screen `Click (+1 language)` button: increase active language count
-- On-screen `Long Press (-1 language)` button: decrease active language count while holding
+- On-screen `PLEASE CLICK` button: increase active language count
+- On-screen `PLEASE LONG PRESS` button: decrease active language count while holding
 - `C`: toggle calibration overlay
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone

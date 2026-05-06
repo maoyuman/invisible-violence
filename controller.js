@@ -22,7 +22,10 @@ async function sendLanguageStep(step) {
       statusText.textContent = "Send failed";
       return;
     }
-    statusText.textContent = step > 0 ? "Sent +1 language" : "Sent -1 language";
+    statusText.textContent =
+      step > 0
+        ? "Please click the botton to find what the changes in the screen."
+        : "Sent -1 language";
   } catch (_err) {
     statusText.textContent = "Cannot connect to server";
   }

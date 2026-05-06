@@ -258,6 +258,7 @@ const state = {
   calibrationMode: true,
   debugOverlaysVisible: true,
   debugTrails: false,
+  zoneReferenceVisible: true,
   paused: false,
   selectedZone: "mouth",
   speedMultiplier: 0.72,
@@ -429,8 +430,10 @@ function drawBackground() {
     ellipse(width * 0.44, y - 70, width * 1.2, 120);
   }
 
-  drawZoneReference(state.zones.mouth, "mouth");
-  drawZoneReference(state.zones.ear, "ear");
+  if (state.zoneReferenceVisible) {
+    drawZoneReference(state.zones.mouth, "mouth");
+    drawZoneReference(state.zones.ear, "ear");
+  }
 }
 
 function drawZoneReference(zone, type) {
@@ -488,10 +491,10 @@ function drawHud() {
   const activeKeys = getActiveLanguageKeys();
   const lines = [
     "Invisible Violence - POC",
-    `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x`,
+    `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
     "C calibration | O debug overlays | TAB zone | arrows move | [ ] scale | , . rotate",
-    "S save | L load | D debug trails | SPACE pause emit | -/+ speed",
+    "S save | L load | D debug trails | SPACE hide/show red-blue shapes | P pause emit | -/+ speed",
   ];
 
   push();
@@ -608,6 +611,10 @@ function keyPressed() {
     return false;
   }
   if (key === " ") {
+    state.zoneReferenceVisible = !state.zoneReferenceVisible;
+    return false;
+  }
+  if (key === "p" || key === "P") {
     state.paused = !state.paused;
     return false;
   }

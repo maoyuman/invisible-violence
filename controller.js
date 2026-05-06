@@ -9,6 +9,9 @@ const longPressBtn = document.getElementById("long-press-btn");
 const statusText = document.getElementById("status-text");
 const bgVideo = document.getElementById("bg-video");
 
+const VIDEO_MISSING_HINT =
+  "No background video: copy your file to assets/ipad-background.mov or .mp4 (see assets/README.txt).";
+
 const pressState = {
   active: false,
   timerId: null,
@@ -67,8 +70,42 @@ const endLongPress = () => {
   statusText.textContent = INITIAL_STATUS_TEXT;
 };
 
+function tryPlayBackgroundVideo() {
+  if (!bgVideo) {
+    return;
+  }
+  bgVideo.muted = true;
+  bgVideo.defaultMuted = true;
+  bgVideo.setAttribute("muted", "");
+  const playAttempt = bgVideo.play();
+  if (playAttempt && typeof playAttempt.catch === "function") {
+    playAttempt.catch(() => {
+      statusText.textContent =
+        "Tap the screen once to start the background video (browser blocked autoplay).";
+      window.addEventListener(
+        "pointerdown",
+        () => {
+          bgVideo.play().catch(() => {});
+          statusText.textContent = INITIAL_STATUS_TEXT;
+        },
+        { once: true }
+      );
+    });
+  }
+}
+
 if (bgVideo) {
-  bgVideo.play().catch(() => {});
+  bgVideo.addEventListener(
+    "loadeddata",
+    () => {
+      tryPlayBackgroundVideo();
+    },
+    { once: true }
+  );
+  bgVideo.addEventListener("error", () => {
+    statusText.textContent = VIDEO_MISSING_HINT;
+  });
+  tryPlayBackgroundVideo();
 }
 
 longPressBtn.addEventListener("pointerdown", beginLongPress);

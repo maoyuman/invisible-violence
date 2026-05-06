@@ -252,13 +252,28 @@ function pickWeightedRandomWord() {
 const FONT_STACK =
   '"Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "Noto Sans", sans-serif';
 
+/** Scene background RGB (edges + letterbox feel around the video layer). */
+const SCENE_BG = [7, 2, 14];
+
+/**
+ * Color painted inside mouth/ear ellipses (“holes”).
+ * The web canvas cannot send true transparency to a projector — every pixel is still light.
+ * Pure black (0,0,0) minimizes emitted light so sculptures are not illuminated by the map.
+ * If your wall reads brighter, sample its RGB under venue lights and set that here instead.
+ */
+const SCULPTURE_HOLE_RGB = [0, 0, 0];
+
+/** Background video feel: slower motion + lower opacity so words stay visually primary. */
+const BACKGROUND_VIDEO_SPEED = 0.42;
+const BACKGROUND_VIDEO_ALPHA = 105;
+
 const STORAGE_KEY = "iv-calibration-v1";
 
 const state = {
   calibrationMode: true,
   debugOverlaysVisible: true,
   debugTrails: false,
-  zoneReferenceVisible: true,
+  zoneReferenceVisible: false,
   paused: false,
   selectedZone: "mouth",
   speedMultiplier: 0.72,
@@ -346,6 +361,15 @@ class FlyingWord {
     const wiggleX = sin((now * 0.008 + this.born) * this.jitter) * 2.8;
     const wiggleY = cos((now * 0.006 + this.born) * this.jitter) * 2.4;
 
+    const drawX = pos.x + wiggleX;
+    const drawY = pos.y + wiggleY;
+    if (
+      isPointInsideRotatedEllipse(drawX, drawY, state.zones.mouth) ||
+      isPointInsideRotatedEllipse(drawX, drawY, state.zones.ear)
+    ) {
+      return;
+    }
+
     const fade = t < 0.18 ? t / 0.18 : 1 - (t - 0.18) / 0.82;
     const a = constrain(fade, 0, 1) * this.alpha;
 
@@ -424,17 +448,7 @@ function draw() {
 }
 
 function drawBackground() {
-  background(7, 2, 14, 255);
-
-  if (bgVideo && bgVideo.elt) {
-    const w = bgVideo.width;
-    const h = bgVideo.height;
-    if (w > 0 && h > 0) {
-      drawBackgroundVideoCover(bgVideo);
-      drawVideoMaskForZone(state.zones.mouth);
-      drawVideoMaskForZone(state.zones.ear);
-    }
-  }
+  background(SCENE_BG[0], SCENE_BG[1], SCENE_BG[2], 255);
 
   for (let i = 0; i < 8; i += 1) {
     const y = (frameCount * 0.1 + i * 140) % (height + 140);
@@ -442,6 +456,16 @@ function drawBackground() {
     fill(145, 0, 90, 10);
     ellipse(width * 0.44, y - 70, width * 1.2, 120);
   }
+
+  if (bgVideo && bgVideo.elt) {
+    const w = bgVideo.width;
+    const h = bgVideo.height;
+    if (w > 0 && h > 0) {
+      drawBackgroundVideoCover(bgVideo);
+    }
+  }
+
+  punchSculptureHolesInBackground();
 
   if (state.zoneReferenceVisible) {
     drawZoneReference(state.zones.mouth, "mouth");
@@ -507,7 +531,7 @@ function drawHud() {
     `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
     "C calibration | O debug overlays | TAB zone | arrows move | [ ] scale | , . rotate",
-    "S save | L load | D debug trails | SPACE hide/show red-blue shapes | P pause emit | -/+ speed",
+    "S save | L load | D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ speed",
   ];
 
   push();
@@ -751,6 +775,29 @@ function randomPointInZone(zone) {
   return createVector(zone.x + rotatedX, zone.y + rotatedY);
 }
 
+/** True if world point lies inside zone's rotated ellipse (same shape as spawn + hole punch). */
+function isPointInsideRotatedEllipse(px, py, zone) {
+  const dx = px - zone.x;
+  const dy = py - zone.y;
+  const c = cos(zone.angle);
+  const s = sin(zone.angle);
+  const lx = dx * c + dy * s;
+  const ly = -dx * s + dy * c;
+  const rx = zone.w * 0.5;
+  const ry = zone.h * 0.5;
+  if (rx <= 0 || ry <= 0) {
+    return false;
+  }
+  const nx = lx / rx;
+  const ny = ly / ry;
+  return nx * nx + ny * ny <= 1;
+}
+
+function punchSculptureHolesInBackground() {
+  drawVideoMaskForZone(state.zones.mouth);
+  drawVideoMaskForZone(state.zones.ear);
+}
+
 function cubicBezier(p0, p1, p2, p3, t) {
   const u = 1 - t;
   const tt = t * t;
@@ -861,6 +908,11 @@ function setupBackgroundVideo() {
   bgVideo = createVideo(["assets/background-video.mp4"], () => {
     bgVideo.loop();
     bgVideo.volume(0);
+    bgVideo.speed(BACKGROUND_VIDEO_SPEED);
+    const el = bgVideo.elt;
+    if (el) {
+      el.playbackRate = BACKGROUND_VIDEO_SPEED;
+    }
   });
   bgVideo.hide();
   const el = bgVideo.elt;
@@ -878,16 +930,24 @@ function drawBackgroundVideoCover(vid) {
   const dh = vh * scale;
   const ox = (width - dw) * 0.5;
   const oy = (height - dh) * 0.5;
+  push();
+  tint(255, BACKGROUND_VIDEO_ALPHA);
   image(vid, ox, oy, dw, dh);
+  noTint();
+  pop();
 }
 
-/** Punch holes in the video so mouth/ear sculptures stay clear (solid scene bg). */
+/** Punch holes through video + fog — darkest practical output so sculptures stay un-lit by projection. */
 function drawVideoMaskForZone(zone) {
   push();
   translate(zone.x, zone.y);
   rotate(zone.angle);
   noStroke();
-  fill(7, 2, 14);
+  fill(
+    SCULPTURE_HOLE_RGB[0],
+    SCULPTURE_HOLE_RGB[1],
+    SCULPTURE_HOLE_RGB[2]
+  );
   ellipse(0, 0, zone.w, zone.h);
   pop();
 }

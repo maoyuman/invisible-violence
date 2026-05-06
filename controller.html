@@ -15,8 +15,11 @@
       loop
       playsinline
       webkit-playsinline
+      preload="auto"
       aria-hidden="true"
     >
+      <!-- MP4 (H.264) plays reliably in Chrome / many desktops; MOV is best-effort + Safari/iPad. -->
+      <source src="assets/ipad-background.mp4" type="video/mp4" />
       <source src="assets/ipad-background.mov" type="video/quicktime" />
     </video>
     <main class="controller-ui" aria-label="Remote language controls">

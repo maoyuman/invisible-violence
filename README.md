@@ -4,6 +4,7 @@ Proof-of-concept for a projection-mapped p5.js exhibition:
 - two configurable zones (`mouth` and `ear`)
 - words emitted from mouth toward ear
 - calibration controls and preset save/load
+- **Sculpture holes:** the mouth and ear ellipses cover the video and fog with a solid fill so those pixels stay as dark as possible on the projector (see `SCULPTURE_HOLE_RGB` in `sketch.js`; default pure black). The canvas cannot send “real” transparency to the wall — minimizing light on the sculptures is the practical equivalent. Flying text is not drawn inside those shapes. Align zones with your sculptures (controls below). Red/blue guides are off by default; press `SPACE` while calibrating.
 
 ## Run
 

@@ -13,15 +13,15 @@ From project root:
 python3 bridge_server.py
 ```
 
-Then open [http://localhost:8000/index.html](http://localhost:8000/index.html).
+Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
 ## Phone/iPad Remote Controller
 
 - Main display page: `/index.html`
 - Remote controller page: `/controller.html`
-- Start the server with `python3 bridge_server.py` (this serves both pages + control API).
-- For phone/iPad, open `http://YOUR_COMPUTER_IP:8000/controller.html` on the same Wi-Fi.
-- Keep the main visual running on `http://YOUR_COMPUTER_IP:8000/index.html` (or localhost on your computer browser).
+- Start the server with `python3 bridge_server.py --port 8899` (this serves both pages + control API).
+- For phone/iPad, open `http://YOUR_COMPUTER_IP:8899/controller.html` on the same Wi-Fi.
+- Keep the main visual running on `http://YOUR_COMPUTER_IP:8899/index.html` (or localhost on your computer browser).
 
 ## Controls
 

@@ -223,7 +223,428 @@ const WORD_GROUPS = [
     ko: "한심한",
     ru: "жалкий",
   },
+  {
+    en: "hopeless",
+    zhTw: "絕望",
+    pt: "sem esperança",
+    ja: "絶望",
+    fr: "sans espoir",
+    es: "sin esperanza",
+    tl: "walang pag-asa",
+    ko: "절망",
+    ru: "безнадёжность",
+  },
+  {
+    en: "dumb",
+    zhTw: "呆",
+    pt: "tolinho",
+    ja: "間抜け",
+    fr: "bête",
+    es: "tonto",
+    tl: "bobo",
+    ko: "멍청한",
+    ru: "тупой",
+  },
+  {
+    en: "moron",
+    zhTw: "蠢材",
+    pt: "imbecil",
+    ja: "間の抜け",
+    fr: "imbécile",
+    es: "imbécil",
+    tl: "hangal",
+    ko: "등신",
+    ru: "дебил",
+  },
+  {
+    en: "jerk",
+    zhTw: "混蛋",
+    pt: "babaca",
+    ja: "嫌な奴",
+    fr: "connard",
+    es: "capullo",
+    tl: "bastos",
+    ko: "개자식",
+    ru: "подонок",
+  },
+  {
+    en: "scum",
+    zhTw: "人渣",
+    pt: "escória",
+    ja: "クズめ",
+    fr: "racaille",
+    es: "escoria",
+    tl: "salot",
+    ko: "인간 쓰레기",
+    ru: "отбросы",
+  },
+  {
+    en: "burden",
+    zhTw: "包袱",
+    pt: "fardo",
+    ja: "重荷",
+    fr: "fardeau",
+    es: "carga",
+    tl: "pasanin",
+    ko: "짐",
+    ru: "обуза",
+  },
+  {
+    en: "unwanted",
+    zhTw: "多餘",
+    pt: "indesejado",
+    ja: "いらない",
+    fr: "non désiré",
+    es: "no deseado",
+    tl: "ayaw",
+    ko: "필요 없는",
+    ru: "ненужный",
+  },
+  {
+    en: "rejected",
+    zhTw: "被拒",
+    pt: "rejeitado",
+    ja: "拒絶された",
+    fr: "rejeté",
+    es: "rechazado",
+    tl: "tinanggihan",
+    ko: "거절당한",
+    ru: "отвергнутый",
+  },
+  {
+    en: "coward",
+    zhTw: "膽小鬼",
+    pt: "covarde",
+    ja: "臆病者",
+    fr: "lâche",
+    es: "cobarde",
+    tl: "duwag",
+    ko: "겁쟁이",
+    ru: "трус",
+  },
+  {
+    en: "fake",
+    zhTw: "假的",
+    pt: "falso",
+    ja: "偽物",
+    fr: "faux",
+    es: "falso",
+    tl: "peke",
+    ko: "가짜",
+    ru: "фальшивый",
+  },
+  {
+    en: "liar",
+    zhTw: "騙子",
+    pt: "mentiroso",
+    ja: "嘘つき",
+    fr: "menteur",
+    es: "mentiroso",
+    tl: "sinungaling",
+    ko: "거짓말쟁이",
+    ru: "лжец",
+  },
+  {
+    en: "curse",
+    zhTw: "詛咒",
+    pt: "maldição",
+    ja: "呪い",
+    fr: "malédiction",
+    es: "maldición",
+    tl: "sumpa",
+    ko: "저주",
+    ru: "проклятие",
+  },
+  {
+    en: "poison",
+    zhTw: "毒",
+    pt: "veneno",
+    ja: "毒",
+    fr: "poison",
+    es: "veneno",
+    tl: "lason",
+    ko: "독",
+    ru: "яд",
+  },
+  {
+    en: "wound",
+    zhTw: "傷口",
+    pt: "ferida",
+    ja: "傷",
+    fr: "blessure",
+    es: "herida",
+    tl: "sugat",
+    ko: "상처",
+    ru: "рана",
+  },
+  {
+    en: "nightmare",
+    zhTw: "噩夢",
+    pt: "pesadelo",
+    ja: "悪夢",
+    fr: "cauchemar",
+    es: "pesadilla",
+    tl: "bangungot",
+    ko: "악몽",
+    ru: "кошмар",
+  },
+  {
+    en: "beast",
+    zhTw: "畜生",
+    pt: "fera",
+    ja: "畜生",
+    fr: "brute",
+    es: "bestia",
+    tl: "hayop",
+    ko: "짐승",
+    ru: "скотина",
+  },
+  {
+    en: "demon",
+    zhTw: "惡魔",
+    pt: "demônio",
+    ja: "悪魔",
+    fr: "démon",
+    es: "demonio",
+    tl: "demonyo",
+    ko: "악마",
+    ru: "демон",
+  },
+  {
+    en: "rot",
+    zhTw: "腐爛",
+    pt: "apodrecer",
+    ja: "腐る",
+    fr: "pourrir",
+    es: "pudrir",
+    tl: "mabulok",
+    ko: "썩다",
+    ru: "гниль",
+  },
+  {
+    en: "erase you",
+    zhTw: "抹殺你",
+    pt: "te apagar",
+    ja: "消えろ",
+    fr: "t'effacer",
+    es: "borrarte",
+    tl: "burahin ka",
+    ko: "지워 버려",
+    ru: "стереть тебя",
+  },
+  {
+    en: "nobody cares",
+    zhTw: "沒人在乎",
+    pt: "ninguém se importa",
+    ja: "誰も気にしない",
+    fr: "personne ne s'en soucie",
+    es: "a nadie le importa",
+    tl: "walang pakialam",
+    ko: "아무도 신경 안 써",
+    ru: "всем плевать",
+  },
+  {
+    en: "shut up",
+    zhTw: "閉嘴",
+    pt: "cale-se",
+    ja: "黙れ",
+    fr: "tais-toi",
+    es: "cállate",
+    tl: "tumahimik ka",
+    ko: "닥쳐",
+    ru: "заткнись",
+  },
+  {
+    en: "fool",
+    zhTw: "傻瓜",
+    pt: "tolo",
+    ja: "馬鹿野郎",
+    fr: "niais",
+    es: "necio",
+    tl: "engot",
+    ko: "바보 같은 놈",
+    ru: "дурачина",
+  },
+  {
+    en: "creep",
+    zhTw: "噁心",
+    pt: "nojento",
+    ja: "気持ち悪い",
+    fr: "dégoutant",
+    es: "repugnante",
+    tl: "nakakadiri",
+    ko: "역겨운",
+    ru: "мерзкий",
+  },
+  {
+    en: "hate you",
+    zhTw: "恨你",
+    pt: "te odeio",
+    ja: "憎む",
+    fr: "je te déteste",
+    es: "te odio",
+    tl: "galit ako sa'yo",
+    ko: "네가 싫어",
+    ru: "ненавижу тебя",
+  },
+  {
+    en: "pain",
+    zhTw: "痛苦",
+    pt: "dor",
+    ja: "痛み",
+    fr: "douleur",
+    es: "dolor",
+    tl: "sakit",
+    ko: "고통",
+    ru: "боль",
+  },
+  {
+    en: "bleeding",
+    zhTw: "流血",
+    pt: "sangrando",
+    ja: "血が出る",
+    fr: "saignant",
+    es: "sangrando",
+    tl: "dumudugo",
+    ko: "피 흘리는",
+    ru: "кровь",
+  },
+  {
+    en: "screaming",
+    zhTw: "尖叫",
+    pt: "gritando",
+    ja: "叫び",
+    fr: "hurlement",
+    es: "gritos",
+    tl: "sumisigaw",
+    ko: "비명",
+    ru: "крик",
+  },
+  {
+    en: "invisible",
+    zhTw: "看不見",
+    pt: "invisível",
+    ja: "見えない",
+    fr: "invisible",
+    es: "invisible",
+    tl: "di nakikita",
+    ko: "안 보이는",
+    ru: "невидимый",
+  },
+  {
+    en: "alone",
+    zhTw: "孤獨",
+    pt: "sozinho",
+    ja: "孤独",
+    fr: "seul",
+    es: "solo",
+    tl: "mag-isa",
+    ko: "외로운",
+    ru: "одинокий",
+  },
+  {
+    en: "broken",
+    zhTw: "碎了",
+    pt: "quebrado",
+    ja: "壊れた",
+    fr: "cassé",
+    es: "roto",
+    tl: "wasak",
+    ko: "부서진",
+    ru: "сломанный",
+  },
+  {
+    en: "nothing",
+    zhTw: "什麼都不是",
+    pt: "nada",
+    ja: "何でもない",
+    fr: "rien",
+    es: "nada",
+    tl: "wala",
+    ko: "아무것도 아닌",
+    ru: "ничто",
+  },
+  {
+    en: "dirty",
+    zhTw: "骯髒",
+    pt: "sujo",
+    ja: "汚い",
+    fr: "sale",
+    es: "sucio",
+    tl: "marumi",
+    ko: "더러운",
+    ru: "грязный",
+  },
+  {
+    en: "violence",
+    zhTw: "暴力",
+    pt: "violência",
+    ja: "暴力",
+    fr: "violence",
+    es: "violencia",
+    tl: "karahasan",
+    ko: "폭력",
+    ru: "насилие",
+  },
+  {
+    en: "monster",
+    zhTw: "怪物",
+    pt: "monstro",
+    ja: "怪物",
+    fr: "monstre",
+    es: "monstruo",
+    tl: "halimaw",
+    ko: "괴물",
+    ru: "монстр",
+  },
+  {
+    en: "curse you",
+    zhTw: "咒你",
+    pt: "te amaldiçoar",
+    ja: "のろう",
+    fr: "te maudire",
+    es: "maldecirte",
+    tl: "sumpain ka",
+    ko: "저주할 거야",
+    ru: "прокляну тебя",
+  },
+  {
+    en: "never enough",
+    zhTw: "永遠不夠",
+    pt: "nunca basta",
+    ja: "足りない",
+    fr: "jamais assez",
+    es: "nunca es suficiente",
+    tl: "kulang pa rin",
+    ko: "영원히 부족해",
+    ru: "никогда не хватит",
+  },
+  {
+    en: "too loud",
+    zhTw: "太吵",
+    pt: "alto demais",
+    ja: "うるさい",
+    fr: "trop fort",
+    es: "demasiado ruido",
+    tl: "masyadong maingay",
+    ko: "시끄러워",
+    ru: "слишком громко",
+  },
+  {
+    en: "too quiet",
+    zhTw: "太安靜",
+    pt: "quieto demais",
+    ja: "静かすぎ",
+    fr: "trop silencieux",
+    es: "demasiado silencio",
+    tl: "sobrang tahimik",
+    ko: "너무 조용해",
+    ru: "слишком тихо",
+  },
 ];
+
+/** Avoid picking the same concept twice in a row (reduces visible repetition). */
+let lastWordGroupIndex = -1;
 
 function pickRandomLang() {
   const activeKeys = getActiveLanguageKeys();
@@ -245,15 +666,27 @@ function pickRandomLang() {
 /** Pick language by weight, then a random concept in that language. */
 function pickWeightedRandomWord() {
   const lang = pickRandomLang();
-  const g = random(WORD_GROUPS);
+  const n = WORD_GROUPS.length;
+  let idx = floor(random(n));
+  let tries = 0;
+  while (idx === lastWordGroupIndex && n > 1 && tries < 16) {
+    idx = floor(random(n));
+    tries += 1;
+  }
+  lastWordGroupIndex = idx;
+  const g = WORD_GROUPS[idx];
   return { text: g[lang], lang };
 }
 
 const FONT_STACK =
   '"Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "Noto Sans", sans-serif';
 
-/** Scene background RGB (edges + letterbox feel around the video layer). */
+/** Scene background RGB — base layer behind fog / video letterboxing. */
 const SCENE_BG = [7, 2, 14];
+
+/** Main canvas background video (assets/background-video.mp4): slower + dimmed so words stay primary. */
+const BACKGROUND_VIDEO_SPEED = 0.42;
+const BACKGROUND_VIDEO_ALPHA = 105;
 
 /**
  * Color painted inside mouth/ear ellipses (“holes”).
@@ -262,10 +695,6 @@ const SCENE_BG = [7, 2, 14];
  * If your wall reads brighter, sample its RGB under venue lights and set that here instead.
  */
 const SCULPTURE_HOLE_RGB = [0, 0, 0];
-
-/** Background video feel: slower motion + lower opacity so words stay visually primary. */
-const BACKGROUND_VIDEO_SPEED = 0.42;
-const BACKGROUND_VIDEO_ALPHA = 105;
 
 const STORAGE_KEY = "iv-calibration-v1";
 
@@ -276,13 +705,14 @@ const state = {
   zoneReferenceVisible: false,
   paused: false,
   selectedZone: "mouth",
-  speedMultiplier: 0.72,
-  minSpeedMultiplier: 0.3,
+  speedMultiplier: 0.3,
+  minSpeedMultiplier: 0.15,
   maxSpeedMultiplier: 2.4,
   spawnIntervalMs: 140,
   lastSpawnMs: 0,
   maxWords: 180,
-  activeLanguageCount: LANG_WEIGHT_ORDER.length,
+  /** Which languages can spawn (subset of LANG_WEIGHT_ORDER). */
+  activeLanguages: Object.fromEntries(LANG_WEIGHT_ORDER.map((k) => [k, true])),
   words: [],
   langSpawnCounts: Object.fromEntries(LANG_WEIGHT_ORDER.map((k) => [k, 0])),
   zones: {
@@ -317,8 +747,12 @@ const longPressState = {
   active: false,
 };
 let remoteLastCommandId = 0;
-/** p5 video element; null if missing or not yet loadable. */
+/** p5 video element for main screen background; null if missing. */
 let bgVideo = null;
+
+/** Random offset (px) on bezier control points — larger = wider swooping paths. */
+const FLYING_PATH_CTRL_JITTER_X = 285;
+const FLYING_PATH_CTRL_JITTER_Y = 315;
 
 class FlyingWord {
   constructor(text, fromZone, toZone, lang) {
@@ -330,10 +764,17 @@ class FlyingWord {
     this.start = randomPointInZone(fromZone);
     this.end = randomPointInZone(toZone);
 
-    this.curveA = p5.Vector.lerp(this.start, this.end, 0.33);
-    this.curveB = p5.Vector.lerp(this.start, this.end, 0.66);
-    this.curveA.add(random(-140, 140), random(-160, 160));
-    this.curveB.add(random(-140, 140), random(-160, 160));
+    // Handles near endpoints so large jitter arcs farther across the frame.
+    this.curveA = p5.Vector.lerp(this.start, this.end, 0.22);
+    this.curveB = p5.Vector.lerp(this.start, this.end, 0.78);
+    this.curveA.add(
+      random(-FLYING_PATH_CTRL_JITTER_X, FLYING_PATH_CTRL_JITTER_X),
+      random(-FLYING_PATH_CTRL_JITTER_Y, FLYING_PATH_CTRL_JITTER_Y)
+    );
+    this.curveB.add(
+      random(-FLYING_PATH_CTRL_JITTER_X, FLYING_PATH_CTRL_JITTER_X),
+      random(-FLYING_PATH_CTRL_JITTER_Y, FLYING_PATH_CTRL_JITTER_Y)
+    );
 
     this.life = random(2200, 4300);
     this.born = millis();
@@ -358,8 +799,8 @@ class FlyingWord {
     const t = this.progress(now);
     const eased = easeInOutCubic(t);
     const pos = this.getPosition(eased);
-    const wiggleX = sin((now * 0.008 + this.born) * this.jitter) * 2.8;
-    const wiggleY = cos((now * 0.006 + this.born) * this.jitter) * 2.4;
+    const wiggleX = sin((now * 0.008 + this.born) * this.jitter) * 3.5;
+    const wiggleY = cos((now * 0.006 + this.born) * this.jitter) * 3.0;
 
     const drawX = pos.x + wiggleX;
     const drawY = pos.y + wiggleY;
@@ -824,16 +1265,57 @@ function changeSpeed(direction) {
 }
 
 function getActiveLanguageKeys() {
-  return LANG_WEIGHT_ORDER.slice(0, state.activeLanguageCount);
+  return LANG_WEIGHT_ORDER.filter((k) => state.activeLanguages[k]);
+}
+
+function addNextLanguage() {
+  for (let i = 0; i < LANG_WEIGHT_ORDER.length; i += 1) {
+    const k = LANG_WEIGHT_ORDER[i];
+    if (!state.activeLanguages[k]) {
+      state.activeLanguages[k] = true;
+      return;
+    }
+  }
+}
+
+/**
+ * Long-press / negative step: either drop one random active language, or drop a random count of languages at once (always leaves ≥1).
+ */
+function randomReduceLanguages() {
+  const active = LANG_WEIGHT_ORDER.filter((k) => state.activeLanguages[k]);
+  const n = active.length;
+  if (n <= 1) {
+    return;
+  }
+  if (random() < 0.5) {
+    const k = random(active);
+    state.activeLanguages[k] = false;
+    return;
+  }
+  const maxRemove = n - 1;
+  const removeCount = floor(random() * maxRemove) + 1;
+  const pool = [...active];
+  for (let i = 0; i < removeCount && pool.length > 1; i += 1) {
+    const idx = floor(random(pool.length));
+    const k = pool[idx];
+    state.activeLanguages[k] = false;
+    pool.splice(idx, 1);
+  }
 }
 
 function changeActiveLanguageCount(step) {
-  const next = constrain(
-    state.activeLanguageCount + step,
-    1,
-    LANG_WEIGHT_ORDER.length
-  );
-  state.activeLanguageCount = next;
+  if (step > 0) {
+    for (let i = 0; i < step; i += 1) {
+      addNextLanguage();
+    }
+    return;
+  }
+  if (step < 0) {
+    const reps = min(abs(step), LANG_WEIGHT_ORDER.length);
+    for (let i = 0; i < reps; i += 1) {
+      randomReduceLanguages();
+    }
+  }
 }
 
 function setupLanguageControlButtons() {

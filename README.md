@@ -4,7 +4,7 @@ Proof-of-concept for a projection-mapped p5.js exhibition:
 - two configurable zones (`mouth` and `ear`)
 - words emitted from mouth toward ear
 - calibration controls and preset save/load
-- **Sculpture holes:** the mouth and ear ellipses cover the video and fog with a solid fill so those pixels stay as dark as possible on the projector (see `SCULPTURE_HOLE_RGB` in `sketch.js`; default pure black). The canvas cannot send “real” transparency to the wall — minimizing light on the sculptures is the practical equivalent. Flying text is not drawn inside those shapes. Align zones with your sculptures (controls below). Red/blue guides are off by default; press `SPACE` while calibrating.
+- **Sculpture holes:** the mouth and ear ellipses punch through the background video and ambient fog with a solid fill so those pixels stay as dark as possible on the projector (see `SCULPTURE_HOLE_RGB` in `sketch.js`; default pure black). Flying text is not drawn inside those shapes. Main-screen video file: `assets/background-video.mp4` (gitignored; copy locally). Align zones with your sculptures (controls below). Red/blue guides are off by default; press `SPACE` while calibrating.
 
 ## Run
 
@@ -27,8 +27,8 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
 ## Controls
 
-- Controller `Click` (left): increase active language count
-- Controller `Long press` (right): decrease active language count while holding
+- Controller `Click` (left): turn on the next language in order (if any were off)
+- Controller `Long press` (right): each tick either removes **one random** active language **or** removes a **random number** of languages at once (always keeps at least one language)
 - `C`: toggle calibration overlay
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone

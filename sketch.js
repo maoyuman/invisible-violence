@@ -302,6 +302,8 @@ const longPressState = {
   active: false,
 };
 let remoteLastCommandId = 0;
+/** p5 video element; null if missing or not yet loadable. */
+let bgVideo = null;
 
 class FlyingWord {
   constructor(text, fromZone, toZone, lang) {
@@ -392,6 +394,7 @@ function setup() {
   textFont("Noto Sans TC");
   textStyle(BOLD);
   loadCalibration();
+  setupBackgroundVideo();
   setupLanguageControlButtons();
   setupRemoteCommandPolling();
 }
@@ -422,6 +425,16 @@ function draw() {
 
 function drawBackground() {
   background(7, 2, 14, 255);
+
+  if (bgVideo && bgVideo.elt) {
+    const w = bgVideo.width;
+    const h = bgVideo.height;
+    if (w > 0 && h > 0) {
+      drawBackgroundVideoCover(bgVideo);
+      drawVideoMaskForZone(state.zones.mouth);
+      drawVideoMaskForZone(state.zones.ear);
+    }
+  }
 
   for (let i = 0; i < 8; i += 1) {
     const y = (frameCount * 0.1 + i * 140) % (height + 140);
@@ -842,6 +855,41 @@ function setupRemoteCommandPolling() {
       // Ignore temporary network errors while polling.
     }
   }, 250);
+}
+
+function setupBackgroundVideo() {
+  bgVideo = createVideo(["assets/background-video.mp4"], () => {
+    bgVideo.loop();
+    bgVideo.volume(0);
+  });
+  bgVideo.hide();
+  const el = bgVideo.elt;
+  el.muted = true;
+  el.playsInline = true;
+  el.setAttribute("playsinline", "");
+}
+
+/** Scale video like CSS object-fit: cover. */
+function drawBackgroundVideoCover(vid) {
+  const vw = vid.width;
+  const vh = vid.height;
+  const scale = max(width / vw, height / vh);
+  const dw = vw * scale;
+  const dh = vh * scale;
+  const ox = (width - dw) * 0.5;
+  const oy = (height - dh) * 0.5;
+  image(vid, ox, oy, dw, dh);
+}
+
+/** Punch holes in the video so mouth/ear sculptures stay clear (solid scene bg). */
+function drawVideoMaskForZone(zone) {
+  push();
+  translate(zone.x, zone.y);
+  rotate(zone.angle);
+  noStroke();
+  fill(7, 2, 14);
+  ellipse(0, 0, zone.w, zone.h);
+  pop();
 }
 
 function windowResized() {

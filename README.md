@@ -15,6 +15,13 @@ python3 bridge_server.py
 
 Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
+## Background video
+
+Looping footage fills the canvas **under** the flying words. Two elliptical **masks** match the mouth and ear zones so the video does not cover those sculptures.
+
+- Expected path: `assets/background-video.mp4`
+- The MP4 is listed in `.gitignore` (large file); copy yours into `assets/` locally. See `assets/README.txt`.
+
 ## Phone/iPad Remote Controller
 
 - Main display page: `/index.html`
@@ -35,7 +42,8 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 - `S`: save calibration preset (localStorage)
 - `L`: load calibration preset (localStorage)
 - `D`: toggle debug trajectories
-- `SPACE`: pause/resume emission
+- `SPACE`: hide/show red-blue mouth/ear reference shapes
+- `P`: pause/resume emission
 - `-` / `+`: decrease/increase word travel speed (`SHIFT` for larger steps)
 
 ## Basic Git Workflow

@@ -14,7 +14,7 @@ From project root:
 python3 bridge_server.py
 ```
 
-Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
+Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). On load, that page restores the last saved preset from localStorage when present (`L` or auto-save after `C` to show).
 
 ## Phone/iPad Remote Controller
 
@@ -30,7 +30,7 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
 - Controller **Attack More** (left): turn on the next language in order (if any were off)
 - Controller **Attack Less** (right): one tap → one `lang_step: -1` on the server queue → main screen turns off **one random** active language (always keeps at least one)
-- `C`: toggle calibration overlay
+- `C`: toggle calibration overlay (switching **to show** mode auto-saves the same preset as `S` to localStorage)
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone
 - `[` / `]`: uniform scale (both ellipse axes together)

@@ -965,7 +965,7 @@ function drawHud() {
     `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
     "C calibration | O debug overlays | TAB zone | arrows move | [ ] uniform scale | 7 8 width | 9 0 height | , . rotate",
-    "S save | L load | D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ speed",
+    "S save | L load | C→show auto-saves | D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ speed",
   ];
 
   push();
@@ -1071,6 +1071,9 @@ function maybeSpawnWords() {
 function keyPressed() {
   if (key === "c" || key === "C") {
     state.calibrationMode = !state.calibrationMode;
+    if (!state.calibrationMode) {
+      saveCalibration();
+    }
     return false;
   }
   if (key === "o" || key === "O") {

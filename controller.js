@@ -1,22 +1,13 @@
-const LONG_PRESS_DELAY_MS = 450;
-const LONG_PRESS_REPEAT_MS = 260;
-
 const INITIAL_STATUS_TEXT =
-  "Please click the button to see what changes in the screen.";
+  "Use Attack More or Attack Less to change what appears on the main screen.";
 
 const clickBtn = document.getElementById("click-btn");
-const longPressBtn = document.getElementById("long-press-btn");
+const minusBtn = document.getElementById("long-press-btn");
 const statusText = document.getElementById("status-text");
 const bgVideo = document.getElementById("bg-video");
 
 const VIDEO_MISSING_HINT =
   "No background video: copy your file to assets/ipad-background.mov or .mp4 (see assets/README.txt).";
-
-const pressState = {
-  active: false,
-  timerId: null,
-  repeatId: null,
-};
 
 async function sendLanguageStep(step) {
   try {
@@ -24,6 +15,7 @@ async function sendLanguageStep(step) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "lang_step", step }),
+      cache: "no-store",
     });
     if (!res.ok) {
       statusText.textContent = "Send failed";
@@ -31,44 +23,15 @@ async function sendLanguageStep(step) {
     }
     statusText.textContent =
       step > 0
-        ? "Please click the botton to find what the changes in the screen."
-        : "Sent -1 language";
+        ? "Attack More sent — check the main screen."
+        : "Attack Less sent — check the main screen.";
   } catch (_err) {
     statusText.textContent = "Cannot connect to server";
   }
 }
 
 clickBtn.addEventListener("click", () => sendLanguageStep(1));
-
-const beginLongPress = (event) => {
-  event.preventDefault();
-  if (pressState.active) {
-    return;
-  }
-  pressState.active = true;
-  longPressBtn.classList.add("is-holding");
-  statusText.textContent = "Holding...";
-
-  pressState.timerId = window.setTimeout(() => {
-    sendLanguageStep(-1);
-    pressState.repeatId = window.setInterval(() => {
-      sendLanguageStep(-1);
-    }, LONG_PRESS_REPEAT_MS);
-  }, LONG_PRESS_DELAY_MS);
-};
-
-const endLongPress = () => {
-  if (!pressState.active) {
-    return;
-  }
-  pressState.active = false;
-  longPressBtn.classList.remove("is-holding");
-  window.clearTimeout(pressState.timerId);
-  window.clearInterval(pressState.repeatId);
-  pressState.timerId = null;
-  pressState.repeatId = null;
-  statusText.textContent = INITIAL_STATUS_TEXT;
-};
+minusBtn.addEventListener("click", () => sendLanguageStep(-1));
 
 function tryPlayBackgroundVideo() {
   if (!bgVideo) {
@@ -107,8 +70,3 @@ if (bgVideo) {
   });
   tryPlayBackgroundVideo();
 }
-
-longPressBtn.addEventListener("pointerdown", beginLongPress);
-longPressBtn.addEventListener("pointerup", endLongPress);
-longPressBtn.addEventListener("pointercancel", endLongPress);
-longPressBtn.addEventListener("pointerleave", endLongPress);

@@ -3,8 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store" />
     <title>Language Remote Controller</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body class="controller-page">
     <video
@@ -24,17 +25,20 @@
     </video>
     <main class="controller-ui" aria-label="Remote language controls">
       <div class="controller-button-row">
+        <span class="controller-btn-spacer" aria-hidden="true"></span>
         <button id="click-btn" class="control-button controller-btn-side" type="button">
-          Click
+          Attack More
         </button>
+        <span class="controller-btn-spacer" aria-hidden="true"></span>
         <button id="long-press-btn" class="control-button controller-btn-side" type="button">
-          Long press
+          Attack Less
         </button>
+        <span class="controller-btn-spacer" aria-hidden="true"></span>
       </div>
       <p id="status-text" class="controller-status-text">
-        Please click the button to see what changes in the screen.
+        Use Attack More or Attack Less to change what appears on the main screen.
       </p>
     </main>
-    <script src="controller.js"></script>
+    <script src="controller.js?v=5"></script>
   </body>
 </html>

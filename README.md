@@ -20,6 +20,7 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
 - Main display page: `/index.html`
 - Remote controller page: `/controller.html`
+- If **Attack Less** still acts like long-press, the phone likely cached an old `controller.js` (short tap used to cancel before the timer). Restart `bridge_server.py`, then close the controller tab and reopen it, or hard-refresh / clear site data for that origin.
 - Start the server with `python3 bridge_server.py --port 8899` (this serves both pages + control API).
 - For phone/iPad, open `http://YOUR_COMPUTER_IP:8899/controller.html` on the same Wi-Fi.
 - Keep the main visual running on `http://YOUR_COMPUTER_IP:8899/index.html` (or localhost on your computer browser).
@@ -27,8 +28,8 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html).
 
 ## Controls
 
-- Controller `Click` (left): turn on the next language in order (if any were off)
-- Controller `Long press` (right): each tick either removes **one random** active language **or** removes a **random number** of languages at once (always keeps at least one language)
+- Controller **Attack More** (left): turn on the next language in order (if any were off)
+- Controller **Attack Less** (right): one tap → one `lang_step: -1` on the server queue → main screen turns off **one random** active language (always keeps at least one)
 - `C`: toggle calibration overlay
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `Arrow keys`: move selected zone

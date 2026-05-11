@@ -739,13 +739,6 @@ const state = {
   },
 };
 
-const LONG_PRESS_DELAY_MS = 450;
-const LONG_PRESS_REPEAT_MS = 260;
-const longPressState = {
-  timerId: null,
-  repeatId: null,
-  active: false,
-};
 let remoteLastCommandId = 0;
 /** p5 video element for main screen background; null if missing. */
 let bgVideo = null;
@@ -1341,29 +1334,14 @@ function addNextLanguage() {
   }
 }
 
-/**
- * Long-press / negative step: either drop one random active language, or drop a random count of languages at once (always leaves ≥1).
- */
-function randomReduceLanguages() {
+/** Turn off one random active language (no-op if only one left). One call per controller tap / per `lang_step: -1`. */
+function removeOneRandomActiveLanguage() {
   const active = LANG_WEIGHT_ORDER.filter((k) => state.activeLanguages[k]);
-  const n = active.length;
-  if (n <= 1) {
+  if (active.length <= 1) {
     return;
   }
-  if (random() < 0.5) {
-    const k = random(active);
-    state.activeLanguages[k] = false;
-    return;
-  }
-  const maxRemove = n - 1;
-  const removeCount = floor(random() * maxRemove) + 1;
-  const pool = [...active];
-  for (let i = 0; i < removeCount && pool.length > 1; i += 1) {
-    const idx = floor(random(pool.length));
-    const k = pool[idx];
-    state.activeLanguages[k] = false;
-    pool.splice(idx, 1);
-  }
+  const k = random(active);
+  state.activeLanguages[k] = false;
 }
 
 function changeActiveLanguageCount(step) {
@@ -1376,57 +1354,28 @@ function changeActiveLanguageCount(step) {
   if (step < 0) {
     const reps = min(abs(step), LANG_WEIGHT_ORDER.length);
     for (let i = 0; i < reps; i += 1) {
-      randomReduceLanguages();
+      removeOneRandomActiveLanguage();
     }
   }
 }
 
 function setupLanguageControlButtons() {
   const clickBtn = document.getElementById("click-btn");
-  const longPressBtn = document.getElementById("long-press-btn");
-  if (!clickBtn || !longPressBtn) {
+  const minusBtn = document.getElementById("long-press-btn");
+  if (!clickBtn || !minusBtn) {
     return;
   }
 
   clickBtn.addEventListener("click", () => changeActiveLanguageCount(1));
-
-  const beginLongPress = (event) => {
-    event.preventDefault();
-    if (longPressState.active) {
-      return;
-    }
-    longPressState.active = true;
-    longPressBtn.classList.add("is-holding");
-    longPressState.timerId = window.setTimeout(() => {
-      changeActiveLanguageCount(-1);
-      longPressState.repeatId = window.setInterval(() => {
-        changeActiveLanguageCount(-1);
-      }, LONG_PRESS_REPEAT_MS);
-    }, LONG_PRESS_DELAY_MS);
-  };
-
-  const endLongPress = () => {
-    if (!longPressState.active) {
-      return;
-    }
-    longPressState.active = false;
-    longPressBtn.classList.remove("is-holding");
-    window.clearTimeout(longPressState.timerId);
-    window.clearInterval(longPressState.repeatId);
-    longPressState.timerId = null;
-    longPressState.repeatId = null;
-  };
-
-  longPressBtn.addEventListener("pointerdown", beginLongPress);
-  longPressBtn.addEventListener("pointerup", endLongPress);
-  longPressBtn.addEventListener("pointercancel", endLongPress);
-  longPressBtn.addEventListener("pointerleave", endLongPress);
+  minusBtn.addEventListener("click", () => changeActiveLanguageCount(-1));
 }
 
 function setupRemoteCommandPolling() {
   window.setInterval(async () => {
     try {
-      const res = await fetch(`/api/commands?since=${remoteLastCommandId}`);
+      const res = await fetch(`/api/commands?since=${remoteLastCommandId}`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         return;
       }

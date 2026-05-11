@@ -699,8 +699,8 @@ const SCULPTURE_HOLE_RGB = [0, 0, 0];
 const STORAGE_KEY = "iv-calibration-v1";
 
 /** Min/max ms between spawn batches (lower = denser words). */
-const SPAWN_INTERVAL_MS_MIN = 65;
-const SPAWN_INTERVAL_MS_MAX = 520;
+const SPAWN_INTERVAL_MS_MIN = 250;
+const SPAWN_INTERVAL_MS_MAX = 1000;
 const SPAWN_KEYBOARD_STEP_MS = 16;
 const SPAWN_KEYBOARD_STEP_MS_SHIFT = 38;
 /** Each Attack More / Attack Less tick nudges interval when a language is actually added/removed. */
@@ -721,7 +721,7 @@ const state = {
   minSpeedMultiplier: 0.15,
   maxSpeedMultiplier: 2.4,
   /** Milliseconds between spawn batches in maybeSpawnWords (clamped). */
-  spawnIntervalMs: 140,
+  spawnIntervalMs: 500,
   lastSpawnMs: 0,
   maxWords: 180,
   /** Which languages can spawn (subset of LANG_WEIGHT_ORDER). */

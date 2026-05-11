@@ -39,7 +39,7 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). 
 - `7` / `8`: decrease / increase ellipse **width** only (`SHIFT` for larger steps)
 - `9` / `0`: decrease / increase ellipse **height** only (`SHIFT` for larger steps)
 - `,` / `.`: rotate selected zone
-- **SHOW mode** (not calibrating): **`[`** / **`]`** — fewer / more words spawned (changes ms between spawn batches; **SHIFT** = larger step; hard caps ~65–520 ms). In **calibration**, those keys still resize the selected zone ellipse.
+- **SHOW mode** (not calibrating): **`[`** / **`]`** — fewer / more words spawned (changes ms between spawn batches; **SHIFT** = larger step; hard caps **250–1000 ms**). In **calibration**, those keys still resize the selected zone ellipse.
 - `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, debug overlays, red-blue guides, selected zone, travel speed, **spawn interval ms**, active languages)
 - `L`: load that preset from localStorage
 - `D`: toggle debug trajectories

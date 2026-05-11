@@ -32,12 +32,14 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). 
 - Controller **Attack Less** (right): one tap → one `lang_step: -1` on the server queue → main screen turns off **one random** active language (always keeps at least one)
 - `C`: toggle calibration overlay (switching **to show** mode auto-saves the same preset as `S` to localStorage)
 - `TAB`: switch selected zone (`mouth` / `ear`)
+- `M`: toggle **custom shapes** (polygons). When **on**, each zone with **≥3** saved vertices uses a closed polygon instead of an ellipse for holes, spawns, and word clipping; fewer than three vertices falls back to the ellipse for that zone.
+- **Polygon edit** (calibration **on** + `M` **on**, `TAB` selects zone): **left-click** background adds a vertex; **drag** a yellow handle to move; **right-click** a handle or **Backspace**/**Delete** removes (Backspace with no handle under the cursor removes the **last** vertex). Clicks on the top-left HUD or right language panel are ignored so overlays stay usable.
 - `Arrow keys`: move selected zone
 - `[` / `]`: uniform scale (both ellipse axes together)
 - `7` / `8`: decrease / increase ellipse **width** only (`SHIFT` for larger steps)
 - `9` / `0`: decrease / increase ellipse **height** only (`SHIFT` for larger steps)
 - `,` / `.`: rotate selected zone
-- `S`: save preset to localStorage (zones, calibration/show mode, debug overlays, red-blue guides, selected zone, speed, active languages)
+- `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, debug overlays, red-blue guides, selected zone, speed, active languages)
 - `L`: load that preset from localStorage
 - `D`: toggle debug trajectories
 - `SPACE`: hide/show red-blue mouth/ear reference shapes

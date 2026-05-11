@@ -703,6 +703,10 @@ const state = {
   debugOverlaysVisible: true,
   debugTrails: false,
   zoneReferenceVisible: false,
+  /** When true and a zone has ≥3 vertices, that zone uses a polygon instead of an ellipse. */
+  useCustomShapes: false,
+  /** @type {{ zoneKey: string, index: number } | null} */
+  polygonDrag: null,
   paused: false,
   selectedZone: "mouth",
   speedMultiplier: 0.3,
@@ -725,6 +729,8 @@ const state = {
       tint: [255, 120, 145, 58],
       stroke: [255, 120, 145, 220],
       label: "MOUTH",
+      /** Local-space vertices {lx, ly} relative to zone center (pre-rotation); used when useCustomShapes and length ≥ 3. */
+      vertices: [],
     },
     ear: {
       x: 1080,
@@ -735,9 +741,139 @@ const state = {
       tint: [130, 195, 255, 58],
       stroke: [130, 195, 255, 220],
       label: "EAR",
+      vertices: [],
     },
   },
 };
+
+const POLYGON_VERTEX_HIT_PX = 22;
+
+function zoneUsesPolygon(zone) {
+  return (
+    state.useCustomShapes &&
+    zone.vertices &&
+    zone.vertices.length >= 3
+  );
+}
+
+function zoneWorldToLocal(zone, wx, wy) {
+  const dx = wx - zone.x;
+  const dy = wy - zone.y;
+  const c = cos(zone.angle);
+  const s = sin(zone.angle);
+  return { lx: dx * c + dy * s, ly: -dx * s + dy * c };
+}
+
+function zoneLocalToWorld(zone, lx, ly) {
+  const c = cos(zone.angle);
+  const s = sin(zone.angle);
+  return createVector(zone.x + lx * c - ly * s, zone.y + lx * s + ly * c);
+}
+
+function pointInPolygonLocal(px, py, verts) {
+  if (!verts || verts.length < 3) {
+    return false;
+  }
+  let c = false;
+  const n = verts.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const vi = verts[i];
+    const vj = verts[j];
+    if ((vi.ly > py) !== (vj.ly > py)) {
+      const dy = vj.ly - vi.ly;
+      if (abs(dy) < 1e-8) {
+        continue;
+      }
+      const xInt = vi.lx + ((py - vi.ly) * (vj.lx - vi.lx)) / dy;
+      if (px < xInt) {
+        c = !c;
+      }
+    }
+  }
+  return c;
+}
+
+function zoneContainsWorldPoint(wx, wy, zone) {
+  if (zoneUsesPolygon(zone)) {
+    const loc = zoneWorldToLocal(zone, wx, wy);
+    return pointInPolygonLocal(loc.lx, loc.ly, zone.vertices);
+  }
+  return isPointInsideRotatedEllipse(wx, wy, zone);
+}
+
+function nearestVertexIndexToWorld(zone, wx, wy) {
+  if (!zone.vertices || zone.vertices.length === 0) {
+    return -1;
+  }
+  const r2 = POLYGON_VERTEX_HIT_PX * POLYGON_VERTEX_HIT_PX;
+  let best = -1;
+  let bestD = Infinity;
+  for (let i = 0; i < zone.vertices.length; i++) {
+    const p = zoneLocalToWorld(zone, zone.vertices[i].lx, zone.vertices[i].ly);
+    const d = (p.x - wx) * (p.x - wx) + (p.y - wy) * (p.y - wy);
+    if (d <= r2 && d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+function zonePolygonCentroidLocal(zone) {
+  const verts = zone.vertices;
+  const n = verts.length;
+  if (n === 0) {
+    return { lx: 0, ly: 0 };
+  }
+  if (n < 3) {
+    let sx = 0;
+    let sy = 0;
+    for (let i = 0; i < n; i++) {
+      sx += verts[i].lx;
+      sy += verts[i].ly;
+    }
+    return { lx: sx / n, ly: sy / n };
+  }
+  let a = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const cross = verts[i].lx * verts[j].ly - verts[j].lx * verts[i].ly;
+    a += cross;
+    cx += (verts[i].lx + verts[j].lx) * cross;
+    cy += (verts[i].ly + verts[j].ly) * cross;
+  }
+  a *= 0.5;
+  if (abs(a) < 1e-6) {
+    return { lx: verts[0].lx, ly: verts[0].ly };
+  }
+  return { lx: cx / (6 * a), ly: cy / (6 * a) };
+}
+
+function randomPointInZonePolygon(zone) {
+  const verts = zone.vertices;
+  let minx = Infinity;
+  let miny = Infinity;
+  let maxx = -Infinity;
+  let maxy = -Infinity;
+  for (let i = 0; i < verts.length; i++) {
+    const v = verts[i];
+    minx = min(minx, v.lx);
+    miny = min(miny, v.ly);
+    maxx = max(maxx, v.lx);
+    maxy = max(maxy, v.ly);
+  }
+  for (let attempt = 0; attempt < 900; attempt += 1) {
+    const lx = random(minx, maxx);
+    const ly = random(miny, maxy);
+    if (pointInPolygonLocal(lx, ly, verts)) {
+      return zoneLocalToWorld(zone, lx, ly);
+    }
+  }
+  const c = zonePolygonCentroidLocal(zone);
+  return zoneLocalToWorld(zone, c.lx, c.ly);
+}
 
 let remoteLastCommandId = 0;
 /** p5 video element for main screen background; null if missing. */
@@ -798,8 +934,8 @@ class FlyingWord {
     const drawX = pos.x + wiggleX;
     const drawY = pos.y + wiggleY;
     if (
-      isPointInsideRotatedEllipse(drawX, drawY, state.zones.mouth) ||
-      isPointInsideRotatedEllipse(drawX, drawY, state.zones.ear)
+      zoneContainsWorldPoint(drawX, drawY, state.zones.mouth) ||
+      zoneContainsWorldPoint(drawX, drawY, state.zones.ear)
     ) {
       return;
     }
@@ -849,6 +985,7 @@ class FlyingWord {
 function setup() {
   const c = createCanvas(windowWidth, windowHeight);
   c.parent("app");
+  c.elt.addEventListener("contextmenu", (e) => e.preventDefault());
   textFont("Noto Sans TC");
   textStyle(BOLD);
   loadCalibration();
@@ -911,27 +1048,45 @@ function drawZoneReference(zone, type) {
   push();
   translate(zone.x, zone.y);
   rotate(zone.angle);
-  noStroke();
-  fill(...zone.tint);
-  ellipse(0, 0, zone.w, zone.h);
-
-  noFill();
-  stroke(...zone.stroke);
-  strokeWeight(2);
-  ellipse(0, 0, zone.w, zone.h);
-
-  if (type === "mouth") {
-    stroke(255, 90, 120, 180);
-    strokeWeight(3);
+  if (zoneUsesPolygon(zone)) {
+    noStroke();
+    fill(...zone.tint);
+    beginShape();
+    for (let i = 0; i < zone.vertices.length; i++) {
+      vertex(zone.vertices[i].lx, zone.vertices[i].ly);
+    }
+    endShape(CLOSE);
     noFill();
-    arc(0, -4, zone.w * 0.8, zone.h * 0.6, 0.2, PI - 0.2);
-    arc(0, 2, zone.w * 0.8, zone.h * 0.5, PI + 0.2, TWO_PI - 0.2);
+    stroke(...zone.stroke);
+    strokeWeight(2);
+    beginShape();
+    for (let i = 0; i < zone.vertices.length; i++) {
+      vertex(zone.vertices[i].lx, zone.vertices[i].ly);
+    }
+    endShape(CLOSE);
   } else {
-    stroke(160, 220, 255, 190);
-    strokeWeight(3);
+    noStroke();
+    fill(...zone.tint);
+    ellipse(0, 0, zone.w, zone.h);
+
     noFill();
-    arc(0, 0, zone.w * 0.52, zone.h * 0.74, -PI * 0.35, PI * 1.18);
-    arc(-6, 8, zone.w * 0.22, zone.h * 0.28, -PI * 0.2, PI * 1.1);
+    stroke(...zone.stroke);
+    strokeWeight(2);
+    ellipse(0, 0, zone.w, zone.h);
+
+    if (type === "mouth") {
+      stroke(255, 90, 120, 180);
+      strokeWeight(3);
+      noFill();
+      arc(0, -4, zone.w * 0.8, zone.h * 0.6, 0.2, PI - 0.2);
+      arc(0, 2, zone.w * 0.8, zone.h * 0.5, PI + 0.2, TWO_PI - 0.2);
+    } else {
+      stroke(160, 220, 255, 190);
+      strokeWeight(3);
+      noFill();
+      arc(0, 0, zone.w * 0.52, zone.h * 0.74, -PI * 0.35, PI * 1.18);
+      arc(-6, 8, zone.w * 0.22, zone.h * 0.28, -PI * 0.2, PI * 1.1);
+    }
   }
   pop();
 }
@@ -941,37 +1096,70 @@ function drawZoneOverlay(zone, isSelected) {
   translate(zone.x, zone.y);
   rotate(zone.angle);
 
-  strokeWeight(isSelected ? 3 : 1.5);
-  stroke(isSelected ? 255 : 200, isSelected ? 230 : 130);
-  noFill();
-  ellipse(0, 0, zone.w + 22, zone.h + 22);
+  if (zoneUsesPolygon(zone)) {
+    strokeWeight(isSelected ? 3 : 1.5);
+    stroke(isSelected ? 255 : 200, isSelected ? 230 : 130);
+    noFill();
+    beginShape();
+    for (let i = 0; i < zone.vertices.length; i++) {
+      vertex(zone.vertices[i].lx, zone.vertices[i].ly);
+    }
+    endShape(CLOSE);
 
-  stroke(255, isSelected ? 220 : 100);
-  line(-zone.w * 0.5 - 16, 0, zone.w * 0.5 + 16, 0);
-  line(0, -zone.h * 0.5 - 16, 0, zone.h * 0.5 + 16);
+    if (state.calibrationMode && state.useCustomShapes && isSelected) {
+      for (let i = 0; i < zone.vertices.length; i++) {
+        const v = zone.vertices[i];
+        stroke(255, 220, 60);
+        strokeWeight(2);
+        fill(40, 35, 50);
+        ellipse(v.lx, v.ly, 14, 14);
+      }
+    }
 
-  fill(255);
-  noStroke();
-  textSize(13);
-  textAlign(CENTER, CENTER);
-  text(zone.label, 0, -zone.h * 0.5 - 28);
+    const c = zonePolygonCentroidLocal(zone);
+    fill(255);
+    noStroke();
+    textSize(13);
+    textAlign(CENTER, CENTER);
+    text(zone.label, c.lx, c.ly - 28);
+  } else {
+    strokeWeight(isSelected ? 3 : 1.5);
+    stroke(isSelected ? 255 : 200, isSelected ? 230 : 130);
+    noFill();
+    ellipse(0, 0, zone.w + 22, zone.h + 22);
+
+    stroke(255, isSelected ? 220 : 100);
+    line(-zone.w * 0.5 - 16, 0, zone.w * 0.5 + 16, 0);
+    line(0, -zone.h * 0.5 - 16, 0, zone.h * 0.5 + 16);
+
+    fill(255);
+    noStroke();
+    textSize(13);
+    textAlign(CENTER, CENTER);
+    text(zone.label, 0, -zone.h * 0.5 - 28);
+  }
   pop();
 }
 
 function drawHud() {
   const activeKeys = getActiveLanguageKeys();
+  const polyHint =
+    state.calibrationMode && state.useCustomShapes
+      ? "poly edit: click=add | drag=move | right-click or Backspace=remove"
+      : "poly: M toggles; calib+M to edit vertices";
   const lines = [
     "Invisible Violence - POC",
     `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
+    `custom shapes: ${state.useCustomShapes ? "ON (≥3 pts/zone uses polygon)" : "OFF (ellipses)"} | ${polyHint}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
-    "C calibration | O debug overlays | TAB zone | arrows move | [ ] uniform scale | 7 8 width | 9 0 height | , . rotate",
+    "C calibration | O debug overlays | TAB zone | M custom shapes | arrows move | [ ] scale | 7 8 width | 9 0 height | , . rotate",
     "S save | L load | C→show auto-saves | D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ speed",
   ];
 
   push();
   noStroke();
   fill(0, 130);
-  rect(14, 14, 710, 112, 10);
+  rect(14, 14, 900, 152, 10);
   fill(255, 220);
   textStyle(NORMAL);
   textSize(14);
@@ -1071,6 +1259,7 @@ function maybeSpawnWords() {
 function keyPressed() {
   if (key === "c" || key === "C") {
     state.calibrationMode = !state.calibrationMode;
+    state.polygonDrag = null;
     if (!state.calibrationMode) {
       saveCalibration();
     }
@@ -1102,6 +1291,26 @@ function keyPressed() {
   }
   if (keyCode === TAB) {
     state.selectedZone = state.selectedZone === "mouth" ? "ear" : "mouth";
+    return false;
+  }
+  if (key === "m" || key === "M") {
+    state.useCustomShapes = !state.useCustomShapes;
+    state.polygonDrag = null;
+    return false;
+  }
+  if (
+    (keyCode === 8 || keyCode === 46) &&
+    state.calibrationMode &&
+    state.useCustomShapes
+  ) {
+    const z = state.zones[state.selectedZone];
+    let idx = nearestVertexIndexToWorld(z, mouseX, mouseY);
+    if (idx < 0 && z.vertices && z.vertices.length > 0) {
+      idx = z.vertices.length - 1;
+    }
+    if (idx >= 0) {
+      z.vertices.splice(idx, 1);
+    }
     return false;
   }
   if (key === "-" || key === "_") {
@@ -1181,6 +1390,7 @@ function saveCalibration() {
   const payload = {
     mouth: state.zones.mouth,
     ear: state.zones.ear,
+    useCustomShapes: state.useCustomShapes,
     calibrationMode: state.calibrationMode,
     debugOverlaysVisible: state.debugOverlaysVisible,
     debugTrails: state.debugTrails,
@@ -1193,6 +1403,9 @@ function saveCalibration() {
 }
 
 function applyLoadedSettings(parsed) {
+  if (typeof parsed.useCustomShapes === "boolean") {
+    state.useCustomShapes = parsed.useCustomShapes;
+  }
   if (typeof parsed.calibrationMode === "boolean") {
     state.calibrationMode = parsed.calibrationMode;
   }
@@ -1256,6 +1469,16 @@ function applyLoadedZone(name, loaded) {
   zone.w = Number.isFinite(loaded.w) ? loaded.w : zone.w;
   zone.h = Number.isFinite(loaded.h) ? loaded.h : zone.h;
   zone.angle = Number.isFinite(loaded.angle) ? loaded.angle : zone.angle;
+  if (loaded.vertices === null) {
+    zone.vertices = [];
+  } else if (Array.isArray(loaded.vertices)) {
+    zone.vertices = loaded.vertices
+      .map((p) => ({
+        lx: Number(p.lx !== undefined ? p.lx : p.x),
+        ly: Number(p.ly !== undefined ? p.ly : p.y),
+      }))
+      .filter((p) => Number.isFinite(p.lx) && Number.isFinite(p.ly));
+  }
 }
 
 function setDefaultZonePositions() {
@@ -1266,6 +1489,9 @@ function setDefaultZonePositions() {
 }
 
 function randomPointInZone(zone) {
+  if (zoneUsesPolygon(zone)) {
+    return randomPointInZonePolygon(zone);
+  }
   const a = random(TWO_PI);
   const r = sqrt(random());
   const px = (zone.w * 0.5 * r) * cos(a);
@@ -1452,8 +1678,83 @@ function drawVideoMaskForZone(zone) {
   } else {
     fill(255, 255, 255);
   }
-  ellipse(0, 0, zone.w, zone.h);
+  if (zoneUsesPolygon(zone)) {
+    beginShape();
+    for (let i = 0; i < zone.vertices.length; i++) {
+      vertex(zone.vertices[i].lx, zone.vertices[i].ly);
+    }
+    endShape(CLOSE);
+  } else {
+    ellipse(0, 0, zone.w, zone.h);
+  }
   pop();
+}
+
+function isMouseOverSketchHud() {
+  return mouseX >= 12 && mouseX <= 926 && mouseY >= 12 && mouseY <= 178;
+}
+
+function isMouseOverSketchLangPanel() {
+  const panelW = min(300, width - 24);
+  const x0 = width - panelW - 12;
+  if (mouseX < x0 - 8 || mouseX > width - 4) {
+    return false;
+  }
+  const n = getActiveLanguageKeys().length;
+  const panelH = 24 + n * 17 + 20 + 36;
+  return mouseY >= 6 && mouseY <= 6 + panelH;
+}
+
+function mousePressed() {
+  if (!state.calibrationMode || !state.useCustomShapes) {
+    return true;
+  }
+  if (isMouseOverSketchHud() || isMouseOverSketchLangPanel()) {
+    return true;
+  }
+  const zoneKey = state.selectedZone;
+  const zone = state.zones[zoneKey];
+  if (!zone.vertices) {
+    zone.vertices = [];
+  }
+  if (mouseButton === RIGHT) {
+    const idx = nearestVertexIndexToWorld(zone, mouseX, mouseY);
+    if (idx >= 0) {
+      zone.vertices.splice(idx, 1);
+    }
+    return false;
+  }
+  if (mouseButton !== LEFT) {
+    return true;
+  }
+  const hit = nearestVertexIndexToWorld(zone, mouseX, mouseY);
+  if (hit >= 0) {
+    state.polygonDrag = { zoneKey, index: hit };
+    return false;
+  }
+  const loc = zoneWorldToLocal(zone, mouseX, mouseY);
+  zone.vertices.push({ lx: loc.lx, ly: loc.ly });
+  return false;
+}
+
+function mouseDragged() {
+  if (!state.polygonDrag) {
+    return true;
+  }
+  const zone = state.zones[state.polygonDrag.zoneKey];
+  const idx = state.polygonDrag.index;
+  if (!zone || !zone.vertices || idx < 0 || idx >= zone.vertices.length) {
+    state.polygonDrag = null;
+    return true;
+  }
+  const loc = zoneWorldToLocal(zone, mouseX, mouseY);
+  zone.vertices[idx].lx = loc.lx;
+  zone.vertices[idx].ly = loc.ly;
+  return false;
+}
+
+function mouseReleased() {
+  state.polygonDrag = null;
 }
 
 function windowResized() {

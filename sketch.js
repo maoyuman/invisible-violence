@@ -698,6 +698,14 @@ const SCULPTURE_HOLE_RGB = [0, 0, 0];
 
 const STORAGE_KEY = "iv-calibration-v1";
 
+/** Min/max ms between spawn batches (lower = denser words). */
+const SPAWN_INTERVAL_MS_MIN = 65;
+const SPAWN_INTERVAL_MS_MAX = 520;
+const SPAWN_KEYBOARD_STEP_MS = 16;
+const SPAWN_KEYBOARD_STEP_MS_SHIFT = 38;
+/** Each Attack More / Attack Less tick nudges interval when a language is actually added/removed. */
+const SPAWN_LANG_NUDGE_MS = 12;
+
 const state = {
   calibrationMode: true,
   debugOverlaysVisible: true,
@@ -712,6 +720,7 @@ const state = {
   speedMultiplier: 0.3,
   minSpeedMultiplier: 0.15,
   maxSpeedMultiplier: 2.4,
+  /** Milliseconds between spawn batches in maybeSpawnWords (clamped). */
   spawnIntervalMs: 140,
   lastSpawnMs: 0,
   maxWords: 180,
@@ -851,6 +860,9 @@ function zonePolygonCentroidLocal(zone) {
   return { lx: cx / (6 * a), ly: cy / (6 * a) };
 }
 
+/** >1 pulls mouth/ear spawn points toward polygon centroid vs uniform fill (custom shapes only). */
+const FLYING_POLYGON_SPAWN_CENTER_BIAS = 2.7;
+
 function randomPointInZonePolygon(zone) {
   const verts = zone.vertices;
   let minx = Infinity;
@@ -868,7 +880,15 @@ function randomPointInZonePolygon(zone) {
     const lx = random(minx, maxx);
     const ly = random(miny, maxy);
     if (pointInPolygonLocal(lx, ly, verts)) {
-      return zoneLocalToWorld(zone, lx, ly);
+      const cent = zonePolygonCentroidLocal(zone);
+      const t = pow(random(), FLYING_POLYGON_SPAWN_CENTER_BIAS);
+      let mixLx = cent.lx + t * (lx - cent.lx);
+      let mixLy = cent.ly + t * (ly - cent.ly);
+      if (!pointInPolygonLocal(mixLx, mixLy, verts)) {
+        mixLx = lx;
+        mixLy = ly;
+      }
+      return zoneLocalToWorld(zone, mixLx, mixLy);
     }
   }
   const c = zonePolygonCentroidLocal(zone);
@@ -879,9 +899,9 @@ let remoteLastCommandId = 0;
 /** p5 video element for main screen background; null if missing. */
 let bgVideo = null;
 
-/** Random offset (px) on bezier control points — larger = wider swooping paths. */
-const FLYING_PATH_CTRL_JITTER_X = 285;
-const FLYING_PATH_CTRL_JITTER_Y = 315;
+/** Random offset (px) on bezier control points — larger = wider / longer detour arcs. */
+const FLYING_PATH_CTRL_JITTER_X = 520;
+const FLYING_PATH_CTRL_JITTER_Y = 580;
 
 class FlyingWord {
   constructor(text, fromZone, toZone, lang) {
@@ -1149,17 +1169,18 @@ function drawHud() {
       : "poly: M toggles; calib+M to edit vertices";
   const lines = [
     "Invisible Violence - POC",
-    `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
+    `mode: ${state.calibrationMode ? "CALIBRATION" : "SHOW"} | selected: ${state.selectedZone.toUpperCase()} | speed: ${state.speedMultiplier.toFixed(2)}x | spawn: ${state.spawnIntervalMs}ms (${SPAWN_INTERVAL_MS_MIN}–${SPAWN_INTERVAL_MS_MAX}) | red/blue: ${state.zoneReferenceVisible ? "VISIBLE" : "HIDDEN"}`,
     `custom shapes: ${state.useCustomShapes ? "ON (≥3 pts/zone uses polygon)" : "OFF (ellipses)"} | ${polyHint}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
-    "C calibration | O debug overlays | TAB zone | M custom shapes | arrows move | [ ] scale | 7 8 width | 9 0 height | , . rotate",
-    "S save | L load | C→show auto-saves | D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ speed",
+    "C calibration | O debug overlays | TAB zone | M custom shapes | arrows move | CAL: [ ] zone scale | 7 8 width | 9 0 height | , . rotate",
+    "SHOW: [ fewer words / ] more words (SHIFT=big step) | Attack More/Less nudge same (capped) | S save | L load | C→show auto-saves",
+    "D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ travel speed",
   ];
 
   push();
   noStroke();
   fill(0, 130);
-  rect(14, 14, 900, 152, 10);
+  rect(14, 14, 900, 172, 10);
   fill(255, 220);
   textStyle(NORMAL);
   textSize(14);
@@ -1323,6 +1344,14 @@ function keyPressed() {
   }
 
   if (!state.calibrationMode) {
+    if (key === "[") {
+      changeSpawnKeyboard(1);
+      return false;
+    }
+    if (key === "]") {
+      changeSpawnKeyboard(-1);
+      return false;
+    }
     return true;
   }
 
@@ -1397,6 +1426,7 @@ function saveCalibration() {
     zoneReferenceVisible: state.zoneReferenceVisible,
     selectedZone: state.selectedZone,
     speedMultiplier: state.speedMultiplier,
+    spawnIntervalMs: state.spawnIntervalMs,
     activeLanguages: { ...state.activeLanguages },
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1426,6 +1456,13 @@ function applyLoadedSettings(parsed) {
       parsed.speedMultiplier,
       state.minSpeedMultiplier,
       state.maxSpeedMultiplier
+    );
+  }
+  if (Number.isFinite(parsed.spawnIntervalMs)) {
+    state.spawnIntervalMs = constrain(
+      round(parsed.spawnIntervalMs),
+      SPAWN_INTERVAL_MS_MIN,
+      SPAWN_INTERVAL_MS_MAX
     );
   }
   if (parsed.activeLanguages && typeof parsed.activeLanguages === "object") {
@@ -1539,6 +1576,27 @@ function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2;
 }
 
+/** SHOW mode: `[` / `]` — direction +1 = slower (longer interval), -1 = faster. */
+function changeSpawnKeyboard(intervalDirection) {
+  const step = keyIsDown(SHIFT)
+    ? SPAWN_KEYBOARD_STEP_MS_SHIFT
+    : SPAWN_KEYBOARD_STEP_MS;
+  state.spawnIntervalMs = constrain(
+    state.spawnIntervalMs + intervalDirection * step,
+    SPAWN_INTERVAL_MS_MIN,
+    SPAWN_INTERVAL_MS_MAX
+  );
+}
+
+/** +1 after a language was added (denser); -1 after one was removed (sparser). Clamped. */
+function nudgeSpawnForLangChange(langDelta) {
+  state.spawnIntervalMs = constrain(
+    state.spawnIntervalMs - langDelta * SPAWN_LANG_NUDGE_MS,
+    SPAWN_INTERVAL_MS_MIN,
+    SPAWN_INTERVAL_MS_MAX
+  );
+}
+
 function changeSpeed(direction) {
   const step = keyIsDown(SHIFT) ? 0.25 : 0.1;
   const next = state.speedMultiplier + direction * step;
@@ -1576,14 +1634,22 @@ function removeOneRandomActiveLanguage() {
 function changeActiveLanguageCount(step) {
   if (step > 0) {
     for (let i = 0; i < step; i += 1) {
+      const nBefore = getActiveLanguageKeys().length;
       addNextLanguage();
+      if (getActiveLanguageKeys().length > nBefore) {
+        nudgeSpawnForLangChange(1);
+      }
     }
     return;
   }
   if (step < 0) {
     const reps = min(abs(step), LANG_WEIGHT_ORDER.length);
     for (let i = 0; i < reps; i += 1) {
+      const nBefore = getActiveLanguageKeys().length;
       removeOneRandomActiveLanguage();
+      if (getActiveLanguageKeys().length < nBefore) {
+        nudgeSpawnForLangChange(-1);
+      }
     }
   }
 }
@@ -1691,7 +1757,7 @@ function drawVideoMaskForZone(zone) {
 }
 
 function isMouseOverSketchHud() {
-  return mouseX >= 12 && mouseX <= 926 && mouseY >= 12 && mouseY <= 178;
+  return mouseX >= 10 && mouseX <= 930 && mouseY >= 8 && mouseY <= 200;
 }
 
 function isMouseOverSketchLangPanel() {

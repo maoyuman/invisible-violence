@@ -28,8 +28,8 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). 
 
 ## Controls
 
-- Controller **Attack More** (left): turn on the next language in order (if any were off)
-- Controller **Attack Less** (right): one tap → one `lang_step: -1` on the server queue → main screen turns off **one random** active language (always keeps at least one)
+- Controller **Attack More** (left): turn on the next language in order (if any were off); also **slightly increases** word spawn frequency (shorter interval between batches), clamped with keyboard limits.
+- Controller **Attack Less** (right): one tap → one `lang_step: -1` → turns off **one random** active language when possible; also **slightly decreases** spawn frequency (longer interval), clamped the same way.
 - `C`: toggle calibration overlay (switching **to show** mode auto-saves the same preset as `S` to localStorage)
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `M`: toggle **custom shapes** (polygons). When **on**, each zone with **≥3** saved vertices uses a closed polygon instead of an ellipse for holes, spawns, and word clipping; fewer than three vertices falls back to the ellipse for that zone.
@@ -39,12 +39,13 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). 
 - `7` / `8`: decrease / increase ellipse **width** only (`SHIFT` for larger steps)
 - `9` / `0`: decrease / increase ellipse **height** only (`SHIFT` for larger steps)
 - `,` / `.`: rotate selected zone
-- `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, debug overlays, red-blue guides, selected zone, speed, active languages)
+- **SHOW mode** (not calibrating): **`[`** / **`]`** — fewer / more words spawned (changes ms between spawn batches; **SHIFT** = larger step; hard caps ~65–520 ms). In **calibration**, those keys still resize the selected zone ellipse.
+- `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, debug overlays, red-blue guides, selected zone, travel speed, **spawn interval ms**, active languages)
 - `L`: load that preset from localStorage
 - `D`: toggle debug trajectories
 - `SPACE`: hide/show red-blue mouth/ear reference shapes
 - `P`: pause/resume emission
-- `-` / `+`: decrease/increase word travel speed (`SHIFT` for larger steps)
+- `-` / `+`: decrease/increase word **travel** speed along paths (`SHIFT` for larger steps) — separate from spawn **frequency** above.
 
 ## Basic Git Workflow
 

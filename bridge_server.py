@@ -2,6 +2,10 @@
 """
 Static file server + command queue for the phone controller.
 
+GET /api/mapping returns JSON from mapping-export.json next to this script if
+that file exists (404 otherwise). The main page loads localStorage first, then
+overrides from this file when present so exhibit machines can ship a copied mapping.
+
 Each POST /api/command is one discrete user action (e.g. one tap). There is no
 long-hold semantics on the server: the client sends one JSON body per tap.
 `lang_step: 1` turns on the next language; `lang_step: -1` requests one language
@@ -10,7 +14,10 @@ removal on the main display (see sketch.js).
 import argparse
 import json
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+MAPPING_FILENAME = "mapping-export.json"
 
 
 COMMANDS = []
@@ -18,6 +25,9 @@ NEXT_ID = 1
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def mapping_path(self):
+        return Path(__file__).resolve().parent / MAPPING_FILENAME
+
     def end_headers(self):
         # Avoid stale controller.js / HTML on phones (old long-press handler felt like "must hold").
         parsed = urlparse(self.path)
@@ -40,6 +50,26 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         global COMMANDS
         parsed = urlparse(self.path)
+        if parsed.path == "/api/mapping":
+            path = self.mapping_path()
+            if not path.is_file():
+                self._send_json(
+                    404, {"error": "mapping file not found", "path": MAPPING_FILENAME}
+                )
+                return
+            try:
+                raw = path.read_text(encoding="utf-8")
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                self._send_json(
+                    500, {"error": "mapping file is not valid JSON", "path": MAPPING_FILENAME}
+                )
+                return
+            except OSError as e:
+                self._send_json(500, {"error": str(e)})
+                return
+            self._send_json(200, data)
+            return
         if parsed.path != "/api/commands":
             return super().do_GET()
 

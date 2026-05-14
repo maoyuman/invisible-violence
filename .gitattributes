@@ -1,0 +1,16 @@
+# Use LF in the repository and working tree so Windows/prod zips (CRLF) do not
+# mark every line as changed on macOS/Linux.
+* text=auto eol=lf
+
+# Binary paths (if ever committed)
+*.mp4 binary
+*.mov binary
+*.MOV binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.pyc binary

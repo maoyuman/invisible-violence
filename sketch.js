@@ -697,6 +697,8 @@ const BACKGROUND_VIDEO_ALPHA = 105;
 const SCULPTURE_HOLE_RGB = [0, 0, 0];
 
 const STORAGE_KEY = "iv-calibration-v1";
+/** Same basename as bridge_server.py; save exported downloads beside bridge_server.py for startup load via GET /api/mapping. */
+const MAPPING_EXPORT_FILENAME = "mapping-export.json";
 
 /** Min/max ms between spawn batches (lower = denser words). */
 const SPAWN_INTERVAL_MS_MIN = 250;
@@ -1009,6 +1011,16 @@ function setup() {
   textFont("Noto Sans TC");
   textStyle(BOLD);
   loadCalibration();
+  fetch("/api/mapping", { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (data && applyMappingFromObject(data)) {
+        saveCalibration();
+      }
+    })
+    .catch(() => {
+      // Offline or no file: keep localStorage calibration only.
+    });
   setupBackgroundVideo();
   setupLanguageControlButtons();
   setupRemoteCommandPolling();
@@ -1173,7 +1185,7 @@ function drawHud() {
     `custom shapes: ${state.useCustomShapes ? "ON (≥3 pts/zone uses polygon)" : "OFF (ellipses)"} | ${polyHint}`,
     `languages: ${activeKeys.length}/${LANG_WEIGHT_ORDER.length} (${activeKeys.join(", ")})`,
     "C calibration | O debug overlays | TAB zone | M custom shapes | arrows move | CAL: [ ] zone scale | 7 8 width | 9 0 height | , . rotate",
-    "SHOW: [ fewer words / ] more words (SHIFT=big step) | Attack More/Less nudge same (capped) | S save | L load | C→show auto-saves",
+    "SHOW: [ fewer words / ] more words (SHIFT=big step) | Attack More/Less nudge same (capped) | S save | L load | E export mapping JSON | C→show auto-saves",
     "D debug trails | SPACE red-blue guides | P pause | holes=clean sculptures | -/+ travel speed",
   ];
 
@@ -1310,6 +1322,10 @@ function keyPressed() {
     loadCalibration();
     return false;
   }
+  if (key === "e" || key === "E") {
+    exportMappingToLocalFile();
+    return false;
+  }
   if (keyCode === TAB) {
     state.selectedZone = state.selectedZone === "mouth" ? "ear" : "mouth";
     return false;
@@ -1415,10 +1431,26 @@ function keyPressed() {
   return true;
 }
 
-function saveCalibration() {
-  const payload = {
-    mouth: state.zones.mouth,
-    ear: state.zones.ear,
+function snapshotZone(name) {
+  const z = state.zones[name];
+  return {
+    x: z.x,
+    y: z.y,
+    w: z.w,
+    h: z.h,
+    angle: z.angle,
+    tint: [...z.tint],
+    stroke: [...z.stroke],
+    label: z.label,
+    vertices: (z.vertices || []).map((v) => ({ lx: v.lx, ly: v.ly })),
+  };
+}
+
+function getCalibrationPayload() {
+  return {
+    formatVersion: 1,
+    mouth: snapshotZone("mouth"),
+    ear: snapshotZone("ear"),
     useCustomShapes: state.useCustomShapes,
     calibrationMode: state.calibrationMode,
     debugOverlaysVisible: state.debugOverlaysVisible,
@@ -1429,7 +1461,28 @@ function saveCalibration() {
     spawnIntervalMs: state.spawnIntervalMs,
     activeLanguages: { ...state.activeLanguages },
   };
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function saveCalibration() {
+  window.localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(getCalibrationPayload())
+  );
+}
+
+function exportMappingToLocalFile() {
+  const text = JSON.stringify(getCalibrationPayload(), null, 2);
+  const blob = new Blob([text], {
+    type: "application/json;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = MAPPING_EXPORT_FILENAME;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function applyLoadedSettings(parsed) {
@@ -1479,6 +1532,16 @@ function applyLoadedSettings(parsed) {
   }
 }
 
+function applyMappingFromObject(parsed) {
+  if (!parsed || typeof parsed !== "object" || !parsed.mouth || !parsed.ear) {
+    return false;
+  }
+  applyLoadedZone("mouth", parsed.mouth);
+  applyLoadedZone("ear", parsed.ear);
+  applyLoadedSettings(parsed);
+  return true;
+}
+
 function loadCalibration() {
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
@@ -1487,13 +1550,9 @@ function loadCalibration() {
   }
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed.mouth || !parsed.ear) {
+    if (!applyMappingFromObject(parsed)) {
       setDefaultZonePositions();
-      return;
     }
-    applyLoadedZone("mouth", parsed.mouth);
-    applyLoadedZone("ear", parsed.ear);
-    applyLoadedSettings(parsed);
   } catch (err) {
     setDefaultZonePositions();
   }
@@ -1506,6 +1565,23 @@ function applyLoadedZone(name, loaded) {
   zone.w = Number.isFinite(loaded.w) ? loaded.w : zone.w;
   zone.h = Number.isFinite(loaded.h) ? loaded.h : zone.h;
   zone.angle = Number.isFinite(loaded.angle) ? loaded.angle : zone.angle;
+  if (typeof loaded.label === "string" && loaded.label.length > 0) {
+    zone.label = loaded.label;
+  }
+  if (
+    Array.isArray(loaded.tint) &&
+    loaded.tint.length >= 4 &&
+    loaded.tint.every((n) => Number.isFinite(n))
+  ) {
+    zone.tint = loaded.tint.map((n) => Number(n));
+  }
+  if (
+    Array.isArray(loaded.stroke) &&
+    loaded.stroke.length >= 4 &&
+    loaded.stroke.every((n) => Number.isFinite(n))
+  ) {
+    zone.stroke = loaded.stroke.map((n) => Number(n));
+  }
   if (loaded.vertices === null) {
     zone.vertices = [];
   } else if (Array.isArray(loaded.vertices)) {

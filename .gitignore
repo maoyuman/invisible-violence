@@ -1,3 +1,6 @@
+__pycache__/
+*.pyc
+
 # Large background video — copy locally (see README).
 assets/background-video.mp4
 

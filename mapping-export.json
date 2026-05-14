@@ -122,7 +122,6 @@
   },
   "useCustomShapes": true,
   "calibrationMode": false,
-  "debugOverlaysVisible": true,
   "debugTrails": false,
   "zoneReferenceVisible": false,
   "selectedZone": "ear",

@@ -40,7 +40,7 @@ Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). 
 - `9` / `0`: decrease / increase ellipse **height** only (`SHIFT` for larger steps)
 - `,` / `.`: rotate selected zone
 - **SHOW mode** (not calibrating): **`[`** / **`]`** — fewer / more words spawned (changes ms between spawn batches; **SHIFT** = larger step; hard caps **250–1000 ms**). In **calibration**, those keys still resize the selected zone ellipse.
-- `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, debug overlays, red-blue guides, selected zone, travel speed, **spawn interval ms**, active languages)
+- `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, red-blue guides, selected zone, travel speed, **spawn interval ms**, active languages). Debug overlays are **not** saved — press **`O`** each session.
 - `L`: load that preset from localStorage
 - `D`: toggle debug trajectories
 - `SPACE`: hide/show red-blue mouth/ear reference shapes

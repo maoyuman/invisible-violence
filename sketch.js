@@ -710,7 +710,7 @@ const SPAWN_LANG_NUDGE_MS = 12;
 
 const state = {
   calibrationMode: true,
-  debugOverlaysVisible: true,
+  debugOverlaysVisible: false,
   debugTrails: false,
   zoneReferenceVisible: false,
   /** When true and a zone has ≥3 vertices, that zone uses a polygon instead of an ellipse. */
@@ -1453,7 +1453,6 @@ function getCalibrationPayload() {
     ear: snapshotZone("ear"),
     useCustomShapes: state.useCustomShapes,
     calibrationMode: state.calibrationMode,
-    debugOverlaysVisible: state.debugOverlaysVisible,
     debugTrails: state.debugTrails,
     zoneReferenceVisible: state.zoneReferenceVisible,
     selectedZone: state.selectedZone,
@@ -1491,9 +1490,6 @@ function applyLoadedSettings(parsed) {
   }
   if (typeof parsed.calibrationMode === "boolean") {
     state.calibrationMode = parsed.calibrationMode;
-  }
-  if (typeof parsed.debugOverlaysVisible === "boolean") {
-    state.debugOverlaysVisible = parsed.debugOverlaysVisible;
   }
   if (typeof parsed.debugTrails === "boolean") {
     state.debugTrails = parsed.debugTrails;

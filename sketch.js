@@ -684,9 +684,20 @@ const FONT_STACK =
 /** Scene background RGB — base layer behind fog / video letterboxing. */
 const SCENE_BG = [7, 2, 14];
 
-/** Main canvas background video (assets/background-video.mp4): slower + dimmed so words stay primary. */
-const BACKGROUND_VIDEO_SPEED = 0.42;
+/** Main canvas background video (assets/background-video.mp4): slower + dimmed so words stay primary.
+ * Values below 1 stretch each decoded frame in wall-clock time (motion looks less smooth than full-speed video). */
+const BACKGROUND_VIDEO_SPEED = 0.75;
 const BACKGROUND_VIDEO_ALPHA = 105;
+/** Skip leading blank seconds; incoming loop layer starts here. */
+const BACKGROUND_VIDEO_TRIM_START_SEC = 2;
+/** Outgoing last N seconds fade out while incoming (trim → trim+N) fades in (requires two decoders). */
+const BACKGROUND_VIDEO_LOOP_CROSSFADE_SEC = 2;
+
+/**
+ * Canvas internal pixel density: 1 dramatically cuts fill rate on Retina/4K (smoother FPS); 2 looks sharper on HiDPI.
+ * Projector / exhibit setups usually benefit from 1.
+ */
+const DISPLAY_PIXEL_DENSITY = 1;
 
 /**
  * Color painted inside mouth/ear ellipses (“holes”).
@@ -903,8 +914,18 @@ function randomPointInZonePolygon(zone) {
   return zoneLocalToWorld(zone, c.lx, c.ly);
 }
 
-/** p5 video element for main screen background; null if missing. */
-let bgVideo = null;
+/** Primary playing layer; swaps with secondary each loop. */
+let bgVidPrimary = null;
+/** Standby layer — starts at trim when crossfade begins. */
+let bgVidSecondary = null;
+/** True while overlapping outgoing tail and incoming head (dual draw). */
+let bgVideoCrossfading = false;
+/** 0 = full outgoing … 1 = full incoming (during crossfade). */
+let bgVideoCrossfadeU = 0;
+/** Stall watchdog: last known media time per element (weak keys cleaned implicitly). */
+const bgVidStallTrack = new WeakMap();
+/** Both decoders primed once — avoids resetting secondary on repeat loadedmetadata. */
+let bgVidPairStarted = false;
 
 /** Random offset (px) on bezier control points — larger = wider / longer detour arcs. */
 const FLYING_PATH_CTRL_JITTER_X = 520;
@@ -1047,6 +1068,7 @@ class FlyingWord {
 
 function setup() {
   const c = createCanvas(windowWidth, windowHeight);
+  pixelDensity(DISPLAY_PIXEL_DENSITY);
   c.parent("app");
   c.elt.addEventListener("contextmenu", (e) => e.preventDefault());
   textFont("Noto Sans TC");
@@ -1132,6 +1154,9 @@ function draw() {
 }
 
 function drawBackground() {
+  updateBackgroundVideoCrossfade();
+  bgVideoPlaybackWatchdog();
+
   background(SCENE_BG[0], SCENE_BG[1], SCENE_BG[2], 255);
 
   for (let i = 0; i < 8; i += 1) {
@@ -1141,11 +1166,23 @@ function drawBackground() {
     ellipse(width * 0.44, y - 70, width * 1.2, 120);
   }
 
-  if (bgVideo && bgVideo.elt) {
-    const w = bgVideo.width;
-    const h = bgVideo.height;
+  if (bgVidPrimary && bgVidPrimary.elt) {
+    const w = bgVidPrimary.width;
+    const h = bgVidPrimary.height;
     if (w > 0 && h > 0) {
-      drawBackgroundVideoCover(bgVideo);
+      const ao = bgVideoCrossfading ? 1 - bgVideoCrossfadeU : 1;
+      const ai = bgVideoCrossfading ? bgVideoCrossfadeU : 0;
+      if (
+        bgVideoCrossfading &&
+        bgVidSecondary &&
+        bgVidSecondary.elt &&
+        bgVidSecondary.width > 0
+      ) {
+        drawBackgroundVideoCoverWithOpacity(bgVidSecondary, ai);
+        drawBackgroundVideoCoverWithOpacity(bgVidPrimary, ao);
+      } else {
+        drawBackgroundVideoCoverWithOpacity(bgVidPrimary, 1);
+      }
     }
   }
 
@@ -1884,25 +1921,215 @@ function connectRemoteCommandSocket() {
   connect();
 }
 
+const BG_VIDEO_FILES = ["assets/background-video.mp4"];
+
 function setupBackgroundVideo() {
-  bgVideo = createVideo(["assets/background-video.mp4"], () => {
-    bgVideo.loop();
-    bgVideo.volume(0);
-    bgVideo.speed(BACKGROUND_VIDEO_SPEED);
-    const el = bgVideo.elt;
-    if (el) {
-      el.playbackRate = BACKGROUND_VIDEO_SPEED;
-    }
-  });
-  bgVideo.hide();
-  const el = bgVideo.elt;
+  bgVidPrimary = createVideo(BG_VIDEO_FILES, () =>
+    configureLoadedBackgroundVideoPairMember(bgVidPrimary)
+  );
+  bgVidSecondary = createVideo(BG_VIDEO_FILES, () =>
+    configureLoadedBackgroundVideoPairMember(bgVidSecondary)
+  );
+  bgVidPrimary.hide();
+  bgVidSecondary.hide();
+}
+
+function configureLoadedBackgroundVideoPairMember(vid) {
+  vid.volume(0);
+  vid.speed(BACKGROUND_VIDEO_SPEED);
+  const el = vid.elt;
+  if (!el) {
+    return;
+  }
+  el.playbackRate = BACKGROUND_VIDEO_SPEED;
+  el.loop = false;
   el.muted = true;
   el.playsInline = true;
   el.setAttribute("playsinline", "");
+  el.preload = "auto";
+
+  const recover = () => {
+    if (el.seeking) {
+      return;
+    }
+    el.play().catch(() => {});
+  };
+  el.addEventListener("stalled", recover);
+  el.addEventListener("waiting", recover);
+  el.addEventListener("suspend", () => {
+    window.setTimeout(recover, 40);
+  });
+
+  el.addEventListener("ended", () => {
+    if (bgVidPrimary?.elt !== el) {
+      return;
+    }
+    if (bgVideoCrossfading) {
+      completeBackgroundVideoLoopSwap();
+      return;
+    }
+    if (!isFinite(el.duration)) {
+      return;
+    }
+    try {
+      el.currentTime = BACKGROUND_VIDEO_TRIM_START_SEC;
+    } catch (_e) {
+      /* ignore */
+    }
+    el.play().catch(() => {});
+  });
+
+  el.addEventListener("loadedmetadata", () => {
+    tryStartBackgroundVideoPairOnce();
+  });
+  tryStartBackgroundVideoPairOnce();
 }
 
-/** Scale video like CSS object-fit: cover. */
-function drawBackgroundVideoCover(vid) {
+function tryStartBackgroundVideoPairOnce() {
+  if (bgVidPairStarted) {
+    return;
+  }
+  const elP = bgVidPrimary?.elt;
+  const elS = bgVidSecondary?.elt;
+  if (!elP || !elS) {
+    return;
+  }
+  const dp = elP.duration;
+  const ds = elS.duration;
+  if (!isFinite(dp) || !isFinite(ds)) {
+    return;
+  }
+  const trim = BACKGROUND_VIDEO_TRIM_START_SEC;
+  const cf = BACKGROUND_VIDEO_LOOP_CROSSFADE_SEC;
+  if (dp <= trim + cf + 0.05) {
+    elP.playbackRate = BACKGROUND_VIDEO_SPEED;
+    elP.play().catch(() => {});
+    bgVidPairStarted = true;
+    return;
+  }
+  try {
+    elS.pause();
+    elS.currentTime = trim;
+  } catch (_e) {
+    /* ignore */
+  }
+  try {
+    elP.currentTime = trim;
+  } catch (_e) {
+    /* ignore */
+  }
+  elP.playbackRate = BACKGROUND_VIDEO_SPEED;
+  elP.play().catch(() => {});
+  bgVidPairStarted = true;
+}
+
+function completeBackgroundVideoLoopSwap() {
+  if (!bgVideoCrossfading || !bgVidPrimary || !bgVidSecondary) {
+    return;
+  }
+  bgVideoCrossfading = false;
+  bgVideoCrossfadeU = 0;
+
+  const elOldOutgoing = bgVidPrimary.elt;
+  try {
+    elOldOutgoing.pause();
+    elOldOutgoing.currentTime = BACKGROUND_VIDEO_TRIM_START_SEC;
+  } catch (_e) {
+    /* ignore */
+  }
+
+  const tmp = bgVidPrimary;
+  bgVidPrimary = bgVidSecondary;
+  bgVidSecondary = tmp;
+
+  bgVidPrimary.elt.playbackRate = BACKGROUND_VIDEO_SPEED;
+  bgVidPrimary.elt.play().catch(() => {});
+}
+
+function updateBackgroundVideoCrossfade() {
+  bgVideoCrossfadeU = 0;
+  if (!bgVidPrimary?.elt || !bgVidSecondary?.elt) {
+    return;
+  }
+
+  const elP = bgVidPrimary.elt;
+  const dur = elP.duration;
+  const t = elP.currentTime;
+  const trim = BACKGROUND_VIDEO_TRIM_START_SEC;
+  const cf = BACKGROUND_VIDEO_LOOP_CROSSFADE_SEC;
+
+  if (!isFinite(dur) || dur <= trim + cf + 0.05) {
+    return;
+  }
+
+  if (!bgVideoCrossfading && t >= dur - cf) {
+    bgVideoCrossfading = true;
+    const elS = bgVidSecondary.elt;
+    try {
+      elS.currentTime = trim;
+      elS.playbackRate = BACKGROUND_VIDEO_SPEED;
+      elS.play().catch(() => {});
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  if (bgVideoCrossfading) {
+    bgVideoCrossfadeU = constrain(map(t, dur - cf, dur, 0, 1), 0, 1);
+    if (elP.ended || t >= dur - 0.04) {
+      completeBackgroundVideoLoopSwap();
+    }
+  }
+}
+
+/** Unstick decoders if currentTime stops advancing while nominally playing. */
+function bgVideoPlaybackWatchdog() {
+  const now = millis();
+  const stallMs = 2000;
+  const step = 0.1;
+  const els = [];
+  if (bgVidPrimary?.elt) {
+    els.push(bgVidPrimary.elt);
+  }
+  if (bgVideoCrossfading && bgVidSecondary?.elt) {
+    els.push(bgVidSecondary.elt);
+  }
+
+  for (const el of els) {
+    if (!el || el.paused || el.ended || el.seeking) {
+      bgVidStallTrack.delete(el);
+      continue;
+    }
+    const ct = el.currentTime;
+    const dur = el.duration;
+    let rec = bgVidStallTrack.get(el);
+    if (!rec) {
+      bgVidStallTrack.set(el, { t: ct, ms: now });
+      continue;
+    }
+    if (abs(ct - rec.t) > 1 / 120) {
+      bgVidStallTrack.set(el, { t: ct, ms: now });
+      continue;
+    }
+    if (now - rec.ms >= stallMs) {
+      try {
+        const cap = isFinite(dur) ? dur - 0.06 : ct + step;
+        el.currentTime = min(ct + step, cap);
+      } catch (_e) {
+        /* ignore */
+      }
+      el.play().catch(() => {});
+      bgVidStallTrack.set(el, { t: el.currentTime, ms: now });
+    }
+  }
+}
+
+/** Scale video like CSS object-fit: cover. Uses cheaper smoothing to ease GPU cost each frame. */
+function drawBackgroundVideoCoverWithOpacity(vid, opacity01) {
+  const o = constrain(opacity01, 0, 1);
+  if (o <= 0) {
+    return;
+  }
   const vw = vid.width;
   const vh = vid.height;
   const scale = max(width / vw, height / vh);
@@ -1910,11 +2137,23 @@ function drawBackgroundVideoCover(vid) {
   const dh = vh * scale;
   const ox = (width - dw) * 0.5;
   const oy = (height - dh) * 0.5;
+  const ctx = drawingContext;
+  const prevSmooth = ctx.imageSmoothingEnabled;
+  const prevQuality =
+    "imageSmoothingQuality" in ctx ? ctx.imageSmoothingQuality : undefined;
+  ctx.imageSmoothingEnabled = true;
+  if (prevQuality !== undefined) {
+    ctx.imageSmoothingQuality = "low";
+  }
   push();
-  tint(255, BACKGROUND_VIDEO_ALPHA);
+  tint(255, BACKGROUND_VIDEO_ALPHA * o);
   image(vid, ox, oy, dw, dh);
   noTint();
   pop();
+  ctx.imageSmoothingEnabled = prevSmooth;
+  if (prevQuality !== undefined) {
+    ctx.imageSmoothingQuality = prevQuality;
+  }
 }
 
 /**
@@ -2016,4 +2255,5 @@ function mouseReleased() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  pixelDensity(DISPLAY_PIXEL_DENSITY);
 }

@@ -700,13 +700,17 @@ const STORAGE_KEY = "iv-calibration-v1";
 /** Same basename as mapping file on disk; export saves beside server.mjs for GET /api/mapping at startup. */
 const MAPPING_EXPORT_FILENAME = "mapping-export.json";
 
-/** Min/max ms between spawn batches (lower = denser words). */
+/** Min/max ms between spawn batches (lower = denser words). Max gives sparse “low attack”. */
 const SPAWN_INTERVAL_MS_MIN = 250;
-const SPAWN_INTERVAL_MS_MAX = 1000;
-const SPAWN_KEYBOARD_STEP_MS = 16;
-const SPAWN_KEYBOARD_STEP_MS_SHIFT = 38;
-/** Each Attack More / Attack Less tick nudges interval when a language is actually added/removed. */
-const SPAWN_LANG_NUDGE_MS = 12;
+const SPAWN_INTERVAL_MS_MAX = 3000;
+const SPAWN_KEYBOARD_STEP_MS = 32;
+const SPAWN_KEYBOARD_STEP_MS_SHIFT = 140;
+/** Controller Attack More/Less: one tenth of the range per press (10 presses min ↔ max). */
+const SPAWN_CONTROLLER_STEP_MS =
+  (SPAWN_INTERVAL_MS_MAX - SPAWN_INTERVAL_MS_MIN) / 10;
+
+/** Attack More: mouth rim glow; fades from press until this deadline (millis). */
+const MOUTH_ATTACK_GLOW_DURATION_MS = 580;
 
 const state = {
   calibrationMode: true,
@@ -723,13 +727,15 @@ const state = {
   minSpeedMultiplier: 0.15,
   maxSpeedMultiplier: 2.4,
   /** Milliseconds between spawn batches in maybeSpawnWords (clamped). */
-  spawnIntervalMs: 500,
+  spawnIntervalMs: 1400,
   lastSpawnMs: 0,
   maxWords: 180,
   /** Which languages can spawn (subset of LANG_WEIGHT_ORDER). */
   activeLanguages: Object.fromEntries(LANG_WEIGHT_ORDER.map((k) => [k, true])),
   words: [],
   langSpawnCounts: Object.fromEntries(LANG_WEIGHT_ORDER.map((k) => [k, 0])),
+  /** millis() clock: draw mouth glow pulse until this time (Attack More feedback). */
+  mouthAttackGlowEndMs: 0,
   zones: {
     mouth: {
       x: 300,
@@ -904,12 +910,19 @@ let bgVideo = null;
 const FLYING_PATH_CTRL_JITTER_X = 520;
 const FLYING_PATH_CTRL_JITTER_Y = 580;
 
+/** Instant Attack More words: larger, brighter, no long fade-in (reads as immediate). */
+const INSTANT_ATTACK_SIZE_MULT = 1.34;
+const INSTANT_ATTACK_ALPHA_BOOST = 42;
+const INSTANT_ATTACK_RGB_BOOST = 1.18;
+
 class FlyingWord {
-  constructor(text, fromZone, toZone, lang) {
+  constructor(text, fromZone, toZone, lang, opts = {}) {
+    const { instantAttack = false } = opts;
     this.text = text;
     this.lang = lang;
     this.fromZone = fromZone;
     this.toZone = toZone;
+    this.instantAttack = instantAttack;
 
     this.start = randomPointInZone(fromZone);
     this.end = randomPointInZone(toZone);
@@ -930,8 +943,14 @@ class FlyingWord {
     this.born = millis();
     const w = LANG_WEIGHTS[lang] ?? LANG_WEIGHT_MIN;
     const mid = map(w, LANG_WEIGHT_MIN, LANG_WEIGHT_MAX, 15, 38);
-    this.size = constrain(random(mid - 5, mid + 10), 10, 52);
-    this.alpha = random(165, 240);
+    let sz = constrain(random(mid - 5, mid + 10), 10, 52);
+    let al = random(165, 240);
+    if (this.instantAttack) {
+      sz = constrain(sz * INSTANT_ATTACK_SIZE_MULT, 15, 58);
+      al = constrain(al + INSTANT_ATTACK_ALPHA_BOOST, 235, 255);
+    }
+    this.size = sz;
+    this.alpha = al;
     this.jitter = random(0.6, 2.0);
     this.rotation = random(-0.2, 0.2);
   }
@@ -954,14 +973,23 @@ class FlyingWord {
 
     const drawX = pos.x + wiggleX;
     const drawY = pos.y + wiggleY;
+    // Hide flying text while it travels through mouth/ear “holes” (otherwise it paints on sculptures).
+    // Instant-attack words must skip this so they’re visible from frame one (spawn starts inside mouth).
     if (
-      zoneContainsWorldPoint(drawX, drawY, state.zones.mouth) ||
-      zoneContainsWorldPoint(drawX, drawY, state.zones.ear)
+      !this.instantAttack &&
+      (zoneContainsWorldPoint(drawX, drawY, state.zones.mouth) ||
+        zoneContainsWorldPoint(drawX, drawY, state.zones.ear))
     ) {
       return;
     }
 
-    const fade = t < 0.18 ? t / 0.18 : 1 - (t - 0.18) / 0.82;
+    const fade = this.instantAttack
+      ? t < 0.18
+        ? 1
+        : 1 - (t - 0.18) / 0.82
+      : t < 0.18
+        ? t / 0.18
+        : 1 - (t - 0.18) / 0.82;
     const a = constrain(fade, 0, 1) * this.alpha;
 
     if (debugTrails) {
@@ -989,8 +1017,22 @@ class FlyingWord {
     textSize(this.size);
     drawingContext.font = `bold ${this.size}px ${FONT_STACK}`;
     const col = LANG_COLORS[this.lang] || [255, 90, 120];
-    const [r, g, b] = col;
-    fill(r * 0.22 + 18, g * 0.22 + 12, b * 0.22 + 18, min(140, a * 0.45));
+    let [r, g, b] = col;
+    if (this.instantAttack) {
+      r = min(255, r * INSTANT_ATTACK_RGB_BOOST);
+      g = min(255, g * INSTANT_ATTACK_RGB_BOOST);
+      b = min(255, b * INSTANT_ATTACK_RGB_BOOST);
+    }
+    const shadowMix = this.instantAttack ? 0.32 : 0.22;
+    const shadowBias = this.instantAttack ? 38 : 18;
+    const shadowAlphaCap = this.instantAttack ? 190 : 140;
+    const shadowAlphaScale = this.instantAttack ? 0.58 : 0.45;
+    fill(
+      r * shadowMix + shadowBias,
+      g * shadowMix + shadowBias,
+      b * shadowMix + shadowBias,
+      min(shadowAlphaCap, a * shadowAlphaScale)
+    );
     text(this.text, 1.8, 1.8);
     fill(r, g, b, a);
     text(this.text, 0, 0);
@@ -1025,6 +1067,45 @@ function setup() {
   connectRemoteCommandSocket();
 }
 
+function drawMouthAttackGlowPulse(now) {
+  const end = state.mouthAttackGlowEndMs;
+  if (!end || now >= end) {
+    return;
+  }
+  const intensity = constrain((end - now) / MOUTH_ATTACK_GLOW_DURATION_MS, 0, 1);
+  const zone = state.zones.mouth;
+  const [r, g, b] = zone.stroke;
+  push();
+  translate(zone.x, zone.y);
+  rotate(zone.angle);
+  noFill();
+  if (zoneUsesPolygon(zone) && zone.vertices.length >= 3) {
+    const c = zonePolygonCentroidLocal(zone);
+    const scales = [1.09, 1.15, 1.22];
+    const alphas = [200, 140, 85];
+    const sw = [5, 3.5, 2];
+    for (let layer = 0; layer < scales.length; layer += 1) {
+      const sc = scales[layer];
+      stroke(r, g, b, alphas[layer] * intensity);
+      strokeWeight(sw[layer]);
+      beginShape();
+      for (let i = 0; i < zone.vertices.length; i += 1) {
+        const v = zone.vertices[i];
+        vertex(c.lx + (v.lx - c.lx) * sc, c.ly + (v.ly - c.ly) * sc);
+      }
+      endShape(CLOSE);
+    }
+  } else {
+    for (let i = 0; i < 5; i += 1) {
+      const pad = 8 + i * 14;
+      stroke(r, g, b, (115 - i * 16) * intensity);
+      strokeWeight(5.5 - i * 0.65);
+      ellipse(0, 0, zone.w + pad, zone.h + pad);
+    }
+  }
+  pop();
+}
+
 function draw() {
   drawBackground();
 
@@ -1034,6 +1115,7 @@ function draw() {
 
   const now = millis();
   state.words = state.words.filter((w) => !w.isDead(now));
+  drawMouthAttackGlowPulse(now);
   for (const w of state.words) {
     w.draw(now, state.debugTrails);
   }
@@ -1268,6 +1350,19 @@ function drawLanguageSpawnOverlay() {
   pop();
 }
 
+/**
+ * When spawn interval is in this slowest fraction of the range, never allow two words
+ * on screen at once (next spawn only after the previous finishes).
+ */
+const SPAWN_SINGLE_WORD_AT_ONCE_SLOWEST_FRACTION = 0.93;
+
+function spawnIntervalImpliesSingleWordAtOnce() {
+  const span = SPAWN_INTERVAL_MS_MAX - SPAWN_INTERVAL_MS_MIN;
+  const threshold =
+    SPAWN_INTERVAL_MS_MIN + span * SPAWN_SINGLE_WORD_AT_ONCE_SLOWEST_FRACTION;
+  return state.spawnIntervalMs >= threshold;
+}
+
 function maybeSpawnWords() {
   const now = millis();
   if (now - state.lastSpawnMs < state.spawnIntervalMs) {
@@ -1277,7 +1372,12 @@ function maybeSpawnWords() {
     return;
   }
 
-  const count = random() < 0.18 ? 2 : 1;
+  const singleOnly = spawnIntervalImpliesSingleWordAtOnce();
+  if (singleOnly && state.words.length >= 1) {
+    return;
+  }
+
+  const count = singleOnly ? 1 : random() < 0.18 ? 2 : 1;
   for (let i = 0; i < count; i += 1) {
     const { text: word, lang } = pickWeightedRandomWord();
     state.langSpawnCounts[lang] += 1;
@@ -1286,6 +1386,21 @@ function maybeSpawnWords() {
     );
   }
   state.lastSpawnMs = now;
+}
+
+/**
+ * Attack More: spawn one word immediately, ignoring spawn interval, maxWords cap,
+ * and single-word-at-once throttle. Does not advance lastSpawnMs.
+ */
+function spawnInstantWordFromAttackMore() {
+  state.mouthAttackGlowEndMs = millis() + MOUTH_ATTACK_GLOW_DURATION_MS;
+  const { text: word, lang } = pickWeightedRandomWord();
+  state.langSpawnCounts[lang] += 1;
+  state.words.push(
+    new FlyingWord(word, state.zones.mouth, state.zones.ear, lang, {
+      instantAttack: true,
+    })
+  );
 }
 
 function keyPressed() {
@@ -1659,10 +1774,10 @@ function changeSpawnKeyboard(intervalDirection) {
   );
 }
 
-/** +1 after a language was added (denser); -1 after one was removed (sparser). Clamped. */
+/** Controller / embedded buttons: ±1 shifts spawn by SPAWN_CONTROLLER_STEP_MS (10 steps across range). */
 function nudgeSpawnForLangChange(langDelta) {
   state.spawnIntervalMs = constrain(
-    state.spawnIntervalMs - langDelta * SPAWN_LANG_NUDGE_MS,
+    state.spawnIntervalMs - langDelta * SPAWN_CONTROLLER_STEP_MS,
     SPAWN_INTERVAL_MS_MIN,
     SPAWN_INTERVAL_MS_MAX
   );
@@ -1704,24 +1819,19 @@ function removeOneRandomActiveLanguage() {
 
 function changeActiveLanguageCount(step) {
   if (step > 0) {
+    spawnInstantWordFromAttackMore();
     for (let i = 0; i < step; i += 1) {
-      const nBefore = getActiveLanguageKeys().length;
       addNextLanguage();
-      if (getActiveLanguageKeys().length > nBefore) {
-        nudgeSpawnForLangChange(1);
-      }
     }
+    nudgeSpawnForLangChange(1);
     return;
   }
   if (step < 0) {
     const reps = min(abs(step), LANG_WEIGHT_ORDER.length);
     for (let i = 0; i < reps; i += 1) {
-      const nBefore = getActiveLanguageKeys().length;
       removeOneRandomActiveLanguage();
-      if (getActiveLanguageKeys().length < nBefore) {
-        nudgeSpawnForLangChange(-1);
-      }
     }
+    nudgeSpawnForLangChange(-1);
   }
 }
 

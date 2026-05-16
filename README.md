@@ -44,7 +44,7 @@ Static files and relay run from **`server.mjs`** (Node). The tablet sends langua
 - `7` / `8`: decrease / increase ellipse **width** only (`SHIFT` for larger steps)
 - `9` / `0`: decrease / increase ellipse **height** only (`SHIFT` for larger steps)
 - `,` / `.`: rotate selected zone
-- **SHOW mode** (not calibrating): **`[`** / **`]`** — fewer / more words spawned (changes ms between spawn batches; **SHIFT** = larger step; hard caps **250–1000 ms**). In **calibration**, those keys still resize the selected zone ellipse.
+- **SHOW mode** (not calibrating): **`[`** / **`]`** — fewer / more words spawned (changes ms between spawn batches; **SHIFT** = larger step; hard caps **250–3000 ms**). Remote **Attack More/Less** moves spawn rate by one tenth of that span per tap (10 taps cover the full range). In **calibration**, those keys still resize the selected zone ellipse. Near the **slowest** end of that range, only **one** word is allowed on screen at a time (no overlapping flights).
 - `S`: save preset to localStorage (zones, vertices, `M` custom-shape flag, calibration/show mode, red-blue guides, selected zone, travel speed, **spawn interval ms**, active languages). Debug overlays are **not** saved — press **`O`** each session.
 - `L`: load that preset from localStorage
 - `D`: toggle debug trajectories

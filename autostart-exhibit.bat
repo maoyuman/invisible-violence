@@ -2,8 +2,27 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-set "PORT=8000"
+rem Exhibit PC needs Node.js + npm on PATH. Run npm install once in this folder.
+set "PORT=8899"
 set "URL=http://127.0.0.1:%PORT%/index.html"
+
+where node >nul 2>&1
+if errorlevel 1 (
+  echo Node.js not found. Install Node.js LTS from https://nodejs.org/ then run npm install in this folder.
+  exit /b 1
+)
+
+where npm >nul 2>&1
+if errorlevel 1 (
+  echo npm not found. Reinstall Node.js so npm is on PATH.
+  exit /b 1
+)
+
+if not exist "node_modules\" (
+  echo Installing dependencies...
+  call npm install
+  if errorlevel 1 exit /b 1
+)
 
 set "CHROME="
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
@@ -16,12 +35,7 @@ if not defined CHROME (
   exit /b 1
 )
 
-where py >nul 2>&1
-if errorlevel 1 (
-  start "invisible-violence server" /MIN python bridge_server.py --host 0.0.0.0 --port %PORT%
-) else (
-  start "invisible-violence server" /MIN py -3 bridge_server.py --host 0.0.0.0 --port %PORT%
-)
+start "invisible-violence server" /MIN cmd /c "cd /d ""%~dp0"" && set PORT=%PORT% && npm start"
 
 timeout /t 2 /nobreak >nul
 start "" "%CHROME%" --kiosk --start-fullscreen "%URL%"

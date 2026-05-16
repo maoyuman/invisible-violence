@@ -8,28 +8,33 @@ Proof-of-concept for a projection-mapped p5.js exhibition:
 
 ## Run
 
-From project root:
+From project root (first time only: `npm install`):
 
 ```bash
-python3 bridge_server.py
+npm start
 ```
 
-Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). On load, that page restores the last saved preset from localStorage when present (`L` or auto-save after `C` to show).
+Default port is **8899** (`PORT=9000 npm start` to override). Then open [http://localhost:8899/index.html](http://localhost:8899/index.html). On load, that page restores the last saved preset from localStorage when present (`L` or auto-save after `C` to show).
+
+Optional HTTP mirror for debugging: `POST /api/command` with JSON `{"type":"lang_step","step":1}` broadcasts the same way as WebSocket taps.
+
+Static files and relay run from **`server.mjs`** (Node). The tablet sends language steps over **WebSocket** to the same host; the main display listens on **`/ws`** — no HTTP polling.
 
 ## Phone/iPad Remote Controller
 
 - Main display page: `/index.html`
 - Remote controller page: `/controller.html`
-- If **Attack Less** still acts like long-press, the phone likely cached an old `controller.js` (short tap used to cancel before the timer). Restart `bridge_server.py`, then close the controller tab and reopen it, or hard-refresh / clear site data for that origin.
-- Start the server with `python3 bridge_server.py --port 8899` (this serves both pages + control API).
-- For phone/iPad, open `http://YOUR_COMPUTER_IP:8899/controller.html` on the same Wi-Fi.
+- Start the relay with **`npm start`** on the exhibit PC (same Wi‑Fi as the tablet).
+- For phone/iPad, open `http://YOUR_COMPUTER_IP:8899/controller.html`.
 - Keep the main visual running on `http://YOUR_COMPUTER_IP:8899/index.html` (or localhost on your computer browser).
+- If the controller shows **Wrong server**, you opened it via plain `python -m http.server` or `file://` — use **`npm start`** instead so **`GET /__relay_ok`** returns `invisible-violence-relay` and WebSockets work.
+- If taps fail after an update, hard-refresh the controller tab or clear site data for that origin (cache-busting query strings on `controller.js`).
 - Background video for the controller: copy your file to `assets/ipad-background.mov` (see `assets/README.txt`). That path is **gitignored** and will not be uploaded to GitHub.
 
 ## Controls
 
 - Controller **Attack More** (left): turn on the next language in order (if any were off); also **slightly increases** word spawn frequency (shorter interval between batches), clamped with keyboard limits.
-- Controller **Attack Less** (right): one tap → one `lang_step: -1` → turns off **one random** active language when possible; also **slightly decreases** spawn frequency (longer interval), clamped the same way.
+- Controller **Attack Less** (right): sends **`lang_step: -1`** over WebSocket → turns off **one random** active language when possible; also **slightly decreases** spawn frequency (longer interval), clamped the same way.
 - `C`: toggle calibration overlay (switching **to show** mode auto-saves the same preset as `S` to localStorage)
 - `TAB`: switch selected zone (`mouth` / `ear`)
 - `M`: toggle **custom shapes** (polygons). When **on**, each zone with **≥3** saved vertices uses a closed polygon instead of an ellipse for holes, spawns, and word clipping; fewer than three vertices falls back to the ellipse for that zone.

@@ -697,7 +697,7 @@ const BACKGROUND_VIDEO_ALPHA = 105;
 const SCULPTURE_HOLE_RGB = [0, 0, 0];
 
 const STORAGE_KEY = "iv-calibration-v1";
-/** Same basename as bridge_server.py; save exported downloads beside bridge_server.py for startup load via GET /api/mapping. */
+/** Same basename as mapping file on disk; export saves beside server.mjs for GET /api/mapping at startup. */
 const MAPPING_EXPORT_FILENAME = "mapping-export.json";
 
 /** Min/max ms between spawn batches (lower = denser words). */
@@ -897,7 +897,6 @@ function randomPointInZonePolygon(zone) {
   return zoneLocalToWorld(zone, c.lx, c.ly);
 }
 
-let remoteLastCommandId = 0;
 /** p5 video element for main screen background; null if missing. */
 let bgVideo = null;
 
@@ -1023,7 +1022,7 @@ function setup() {
     });
   setupBackgroundVideo();
   setupLanguageControlButtons();
-  setupRemoteCommandPolling();
+  connectRemoteCommandSocket();
 }
 
 function draw() {
@@ -1737,32 +1736,42 @@ function setupLanguageControlButtons() {
   minusBtn.addEventListener("click", () => changeActiveLanguageCount(-1));
 }
 
-function setupRemoteCommandPolling() {
-  window.setInterval(async () => {
+function connectRemoteCommandSocket() {
+  if (typeof WebSocket === "undefined") {
+    return;
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${proto}//${window.location.host}/ws`;
+  const connect = () => {
+    let socket;
     try {
-      const res = await fetch(`/api/commands?since=${remoteLastCommandId}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        return;
-      }
-      const payload = await res.json();
-      if (!payload || !Array.isArray(payload.commands)) {
-        return;
-      }
-      for (let i = 0; i < payload.commands.length; i += 1) {
-        const cmd = payload.commands[i];
-        if (Number.isFinite(cmd.id)) {
-          remoteLastCommandId = max(remoteLastCommandId, cmd.id);
-        }
+      socket = new WebSocket(url);
+    } catch (_e) {
+      window.setTimeout(connect, 2000);
+      return;
+    }
+    socket.onmessage = (ev) => {
+      try {
+        const cmd = JSON.parse(ev.data);
         if (cmd.type === "lang_step" && Number.isFinite(cmd.step)) {
           changeActiveLanguageCount(cmd.step);
         }
+      } catch (_err) {
+        /* ignore */
       }
-    } catch (_err) {
-      // Ignore temporary network errors while polling.
-    }
-  }, 250);
+    };
+    socket.onclose = () => {
+      window.setTimeout(connect, 2000);
+    };
+    socket.onerror = () => {
+      try {
+        socket.close();
+      } catch (_e) {
+        /* ignore */
+      }
+    };
+  };
+  connect();
 }
 
 function setupBackgroundVideo() {

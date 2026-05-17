@@ -30,6 +30,7 @@ Static files and relay run from **`server.mjs`** (Node). The tablet sends langua
 - If the controller shows **Wrong server**, you opened it via plain `python -m http.server` or `file://` — use **`npm start`** instead so **`GET /__relay_ok`** returns `invisible-violence-relay` and WebSockets work.
 - If taps fail after an update, hard-refresh the controller tab or clear site data for that origin (cache-busting query strings on `controller.js`).
 - Background video for the controller: copy your file to `assets/ipad-background.mov` (see `assets/README.txt`). That path is **gitignored** and will not be uploaded to GitHub.
+- **No browser UI:** Safari and Chrome on iPad cannot hide tabs/the address bar while you use a normal tab. Use **Share → Add to Home Screen**, then open the controller from the home-screen icon (standalone / web app mode). The controller page includes an on-screen note and a small **`controller-manifest.webmanifest`** so installed shortcuts launch more like an app.
 
 ## Controls
 

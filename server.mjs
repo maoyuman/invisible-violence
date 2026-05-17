@@ -3,7 +3,7 @@
  *
  * Run: npm install && npm start   (PORT defaults to 8899; override with PORT=9000 npm start)
  *
- * - Static files from project root (index.html, sketch.js, controller.html, assets/, …)
+ * - GET static files with Accept-Ranges / HTTP Range (206) — required for iPad/WebKit MP4
  * - GET /api/mapping → mapping-export.json if present (404 otherwise)
  * - GET /__relay_ok → plain text so controller.html can verify this relay (not python -m http.server)
  * - POST /api/command → optional HTTP mirror of lang_step (broadcasts over WebSocket to all clients)
@@ -35,6 +35,7 @@ const MIME = {
   ".mov": "video/quicktime",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
+  ".webmanifest": "application/manifest+json",
 };
 
 function mappingPath() {
@@ -47,26 +48,118 @@ function applyNoStore(pathname) {
     pathname.endsWith(".html") ||
     pathname.endsWith(".js") ||
     pathname.endsWith(".css") ||
-    pathname.endsWith(".json")
+    pathname.endsWith(".json") ||
+    pathname.endsWith(".webmanifest")
   );
 }
 
-function sendFile(res, filePath, pathname) {
+function parseFirstByteRange(rangeHeader, fileSize) {
+  if (!rangeHeader || !rangeHeader.startsWith("bytes=")) {
+    return null;
+  }
+  const part = rangeHeader.slice(6).split(",")[0].trim();
+  const dash = part.indexOf("-");
+  if (dash < 0) {
+    return null;
+  }
+  const startStr = part.slice(0, dash);
+  const endStr = part.slice(dash + 1);
+  let start;
+  let end;
+  if (startStr === "") {
+    const suffixLen = parseInt(endStr, 10);
+    if (!Number.isFinite(suffixLen) || suffixLen <= 0) {
+      return null;
+    }
+    start = Math.max(0, fileSize - suffixLen);
+    end = fileSize - 1;
+  } else {
+    start = parseInt(startStr, 10);
+    end = endStr === "" ? fileSize - 1 : parseInt(endStr, 10);
+    if (!Number.isFinite(start)) {
+      return null;
+    }
+    if (!Number.isFinite(end)) {
+      end = fileSize - 1;
+    }
+  }
+  if (start >= fileSize || start > end) {
+    return null;
+  }
+  end = Math.min(end, fileSize - 1);
+  start = Math.max(0, start);
+  if (start > end) {
+    return null;
+  }
+  return { start, end };
+}
+
+/** Static files; MP4/Safari need Accept-Ranges + 206 partial responses. */
+function sendStaticFile(req, res, filePath, pathname) {
   const ext = path.extname(filePath).toLowerCase();
   const type = MIME[ext] || "application/octet-stream";
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(err.code === "ENOENT" ? 404 : 500);
-      res.end(err.code === "ENOENT" ? "Not found" : "Server error");
+
+  fs.stat(filePath, (err, st) => {
+    if (err || !st.isFile()) {
+      res.writeHead(err?.code === "ENOENT" ? 404 : 500);
+      res.end(err?.code === "ENOENT" ? "Not found" : "Server error");
       return;
     }
-    const headers = { "Content-Type": type };
+
+    const size = st.size;
+    const cacheHeaders = {};
     if (applyNoStore(pathname)) {
-      headers["Cache-Control"] = "no-store, max-age=0, must-revalidate";
-      headers.Pragma = "no-cache";
+      cacheHeaders["Cache-Control"] = "no-store, max-age=0, must-revalidate";
+      cacheHeaders.Pragma = "no-cache";
     }
-    res.writeHead(200, headers);
-    res.end(data);
+
+    const range = req.headers.range;
+    const parsed = parseFirstByteRange(range, size);
+
+    const attachCloseHandlers = (stream) => {
+      stream.on("error", () => {
+        try {
+          res.destroy();
+        } catch (_e) {
+          /* ignore */
+        }
+      });
+    };
+
+    if (parsed) {
+      const { start, end } = parsed;
+      const chunkLength = end - start + 1;
+      res.writeHead(206, {
+        "Content-Type": type,
+        "Content-Length": chunkLength,
+        "Content-Range": `bytes ${start}-${end}/${size}`,
+        "Accept-Ranges": "bytes",
+        ...cacheHeaders,
+      });
+      const stream = fs.createReadStream(filePath, { start, end });
+      attachCloseHandlers(stream);
+      stream.pipe(res);
+      return;
+    }
+
+    if (range) {
+      res.writeHead(416, {
+        "Content-Range": `bytes */${size}`,
+        ...cacheHeaders,
+      });
+      res.end();
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": type,
+      "Content-Length": size,
+      "Accept-Ranges": "bytes",
+      ...cacheHeaders,
+    });
+    const stream = fs.createReadStream(filePath);
+    attachCloseHandlers(stream);
+    stream.pipe(res);
   });
 }
 
@@ -210,7 +303,7 @@ const server = http.createServer((req, res) => {
       res.end("Not found");
       return;
     }
-    sendFile(res, filePath, pathname);
+    sendStaticFile(req, res, filePath, pathname);
   });
 });
 

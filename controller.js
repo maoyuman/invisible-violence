@@ -6,6 +6,19 @@ const minusBtn = document.getElementById("long-press-btn");
 const statusText = document.getElementById("status-text");
 const relayHint = document.getElementById("relay-hint");
 const bgVideo = document.getElementById("bg-video");
+const fsZone = document.getElementById("controller-fs-zone");
+const fsFeedbackEl = document.getElementById("controller-fs-feedback");
+
+const FS_FEEDBACK_VISIBLE_MS = 2600;
+/** Session dismissal for Home Screen kiosk explainer banner. */
+const KIOSK_BANNER_DISMISS_KEY = "iv-controller-kiosk-hint-dismissed";
+
+/** Window for counting taps toward fullscreen (ms). */
+const CONTROLLER_FS_TAP_WINDOW_MS = 850;
+const CONTROLLER_FS_TAPS_REQUIRED = 5;
+
+let fsTapCount = 0;
+let fsTapResetTimer = null;
 
 const VIDEO_MISSING_HINT =
   "No background video: copy your file to assets/ipad-background.mov or .mp4 (see assets/README.txt).";
@@ -108,10 +121,243 @@ function checkRelayThenConnect() {
     });
 }
 
+let fsFeedbackHideTimer = null;
+
+/** Same tap fires pointerdown then click on some Android browsers — count once. */
+let fsSuppressClickUntilMs = 0;
+
+function showFsFeedback(message) {
+  if (!fsFeedbackEl || !message) {
+    return;
+  }
+  fsFeedbackEl.textContent = message;
+  fsFeedbackEl.classList.add("is-visible");
+  if (fsFeedbackHideTimer !== null) {
+    clearTimeout(fsFeedbackHideTimer);
+  }
+  fsFeedbackHideTimer = window.setTimeout(() => {
+    fsFeedbackHideTimer = null;
+    fsFeedbackEl.classList.remove("is-visible");
+    fsFeedbackEl.textContent = "";
+  }, FS_FEEDBACK_VISIBLE_MS);
+}
+
+function noteFullscreenTapFromPointer() {
+  fsSuppressClickUntilMs = Date.now() + 480;
+  noteFullscreenTap();
+}
+
+function noteFullscreenTapFromClick() {
+  if (Date.now() < fsSuppressClickUntilMs) {
+    return;
+  }
+  noteFullscreenTap();
+}
+
+/** True when opened from Add to Home Screen (no Safari/Chrome browser chrome). */
+function isStandaloneDisplayMode() {
+  if (typeof window.matchMedia === "function") {
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      return true;
+    }
+    if (window.matchMedia("(display-mode: fullscreen)").matches) {
+      return true;
+    }
+  }
+  return window.navigator.standalone === true;
+}
+
+function wireKioskStandaloneBanner() {
+  const banner = document.getElementById("controller-kiosk-banner");
+  const dismissBtn = document.getElementById("controller-kiosk-banner-dismiss");
+  if (!banner || !dismissBtn) {
+    return;
+  }
+  if (
+    sessionStorage.getItem(KIOSK_BANNER_DISMISS_KEY) === "1" ||
+    isStandaloneDisplayMode()
+  ) {
+    banner.hidden = true;
+    return;
+  }
+  banner.hidden = false;
+  dismissBtn.addEventListener("click", () => {
+    banner.hidden = true;
+    sessionStorage.setItem(KIOSK_BANNER_DISMISS_KEY, "1");
+  });
+}
+
 clickBtn.addEventListener("click", () => sendLanguageStep(1));
 minusBtn.addEventListener("click", () => sendLanguageStep(-1));
 
+function resetFullscreenTapSequence() {
+  fsTapCount = 0;
+  if (fsTapResetTimer !== null) {
+    clearTimeout(fsTapResetTimer);
+    fsTapResetTimer = null;
+  }
+}
+
+function controllerFullscreenNative() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+/** True if native fullscreen OR CSS fallback (iPad WebKit often no-ops requestFullscreen). */
+function controllerFullscreenEffective() {
+  return (
+    controllerFullscreenNative() ||
+    document.body.classList.contains("controller-faux-fullscreen")
+  );
+}
+
+function enableFauxFullscreen() {
+  document.body.classList.add("controller-faux-fullscreen");
+}
+
+function disableFauxFullscreen() {
+  document.body.classList.remove("controller-faux-fullscreen");
+}
+
+function syncFauxWithNativeFullscreen() {
+  if (controllerFullscreenNative()) {
+    disableFauxFullscreen();
+  }
+}
+
+document.addEventListener("fullscreenchange", syncFauxWithNativeFullscreen);
+document.addEventListener(
+  "webkitfullscreenchange",
+  syncFauxWithNativeFullscreen
+);
+
+function exitAllFullscreenModes() {
+  disableFauxFullscreen();
+  if (!controllerFullscreenNative()) {
+    return;
+  }
+  const doc = document;
+  const exit =
+    doc.exitFullscreen ||
+    doc.webkitExitFullscreen ||
+    doc.msExitFullscreen;
+  if (exit) {
+    exit.call(doc).catch(() => {});
+  }
+}
+
+function tryRequestFullscreenOn(node) {
+  const req =
+    node.requestFullscreen ||
+    node.webkitRequestFullscreen ||
+    node.msRequestFullscreen;
+  if (!req) {
+    return Promise.reject(new Error("no fullscreen"));
+  }
+  return req.call(node);
+}
+
+/**
+ * Runs from the last tap’s user gesture. Chrome Android usually gets real fullscreen on <html>;
+ * iPad WebKit often does not — faux / Home Screen paths handled after verify.
+ */
+function enterControllerFullscreenBestEffort() {
+  const root = document.documentElement;
+  const body = document.body;
+
+  const verifyNativeOrFaux = () =>
+    new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (controllerFullscreenNative()) {
+            disableFauxFullscreen();
+            resolve("native");
+            return;
+          }
+          if (isStandaloneDisplayMode()) {
+            disableFauxFullscreen();
+            resolve("standalone-app");
+            return;
+          }
+          enableFauxFullscreen();
+          resolve("faux");
+        });
+      });
+    });
+
+  return tryRequestFullscreenOn(root)
+    .catch(() => tryRequestFullscreenOn(body))
+    .then(verifyNativeOrFaux)
+    .catch(() => {
+      if (isStandaloneDisplayMode()) {
+        return "standalone-app";
+      }
+      enableFauxFullscreen();
+      return "faux";
+    });
+}
+
+function noteFullscreenTap() {
+  fsTapCount += 1;
+  if (fsTapResetTimer !== null) {
+    clearTimeout(fsTapResetTimer);
+  }
+  fsTapResetTimer = window.setTimeout(() => {
+    fsTapResetTimer = null;
+    fsTapCount = 0;
+  }, CONTROLLER_FS_TAP_WINDOW_MS);
+
+  if (fsTapCount >= CONTROLLER_FS_TAPS_REQUIRED) {
+    const willExitFullscreen = controllerFullscreenEffective();
+    resetFullscreenTapSequence();
+    if (willExitFullscreen) {
+      exitAllFullscreenModes();
+      showFsFeedback("Leaving fullscreen…");
+      return;
+    }
+    enterControllerFullscreenBestEffort().then((mode) => {
+      if (mode === "native") {
+        showFsFeedback("Fullscreen on.");
+        return;
+      }
+      if (mode === "standalone-app") {
+        showFsFeedback(
+          "Opened from Home Screen — browser bars are already hidden."
+        );
+        return;
+      }
+      showFsFeedback(
+        "Safari/Chrome cannot hide the URL bar inside a tab. Share → Add to Home Screen → open from that icon."
+      );
+    });
+    return;
+  }
+
+  if (fsTapCount >= 3) {
+    const remaining = CONTROLLER_FS_TAPS_REQUIRED - fsTapCount;
+    const exiting = controllerFullscreenEffective();
+    const goal = exiting ? "to exit fullscreen" : "for fullscreen";
+    showFsFeedback(
+      remaining === 1
+        ? `Tap 1 more time ${goal}.`
+        : `Tap ${remaining} more times ${goal}.`
+    );
+  }
+}
+
+if (fsZone) {
+  fsZone.addEventListener("pointerdown", noteFullscreenTapFromPointer, {
+    passive: true,
+  });
+  fsZone.addEventListener("click", noteFullscreenTapFromClick);
+}
+
 checkRelayThenConnect();
+
+let bgVideoGestureUnlockInstalled = false;
 
 function tryPlayBackgroundVideo() {
   if (!bgVideo) {
@@ -120,33 +366,64 @@ function tryPlayBackgroundVideo() {
   bgVideo.muted = true;
   bgVideo.defaultMuted = true;
   bgVideo.setAttribute("muted", "");
+  bgVideo.playsInline = true;
   const playAttempt = bgVideo.play();
   if (playAttempt && typeof playAttempt.catch === "function") {
     playAttempt.catch(() => {
+      if (bgVideoGestureUnlockInstalled) {
+        return;
+      }
+      bgVideoGestureUnlockInstalled = true;
       statusText.textContent =
-        "Tap the screen once to start the background video (browser blocked autoplay).";
-      window.addEventListener(
-        "pointerdown",
-        () => {
-          bgVideo.play().catch(() => {});
-          statusText.textContent = INITIAL_STATUS_TEXT;
-        },
-        { once: true }
+        "Tap anywhere once if the background stays black (tablet autoplay).";
+      const unlock = () => {
+        bgVideoGestureUnlockInstalled = false;
+        bgVideo.play().catch(() => {});
+        statusText.textContent = INITIAL_STATUS_TEXT;
+      };
+      document.documentElement.addEventListener("pointerdown", unlock, {
+        capture: true,
+        once: true,
+      });
+      document.documentElement.addEventListener(
+        "touchend",
+        unlock,
+        { capture: true, once: true }
       );
     });
   }
 }
 
-if (bgVideo) {
-  bgVideo.addEventListener(
-    "loadeddata",
-    () => {
-      tryPlayBackgroundVideo();
-    },
-    { once: true }
-  );
+function wireControllerBackgroundVideo() {
+  if (!bgVideo) {
+    return;
+  }
+  /* iPad/WebKit (incl. “Chrome” on iOS): inline + muted must be explicit for autoplay. */
+  bgVideo.setAttribute("playsinline", "");
+  bgVideo.setAttribute("webkit-playsinline", "true");
+  bgVideo.playsInline = true;
+
+  const kick = () => {
+    tryPlayBackgroundVideo();
+  };
+  bgVideo.addEventListener("loadeddata", kick);
+  bgVideo.addEventListener("canplay", kick);
+  bgVideo.addEventListener("stalled", kick);
+  bgVideo.addEventListener("waiting", kick);
+  bgVideo.addEventListener("playing", () => {
+    bgVideoGestureUnlockInstalled = false;
+  });
   bgVideo.addEventListener("error", () => {
     statusText.textContent = VIDEO_MISSING_HINT;
   });
-  tryPlayBackgroundVideo();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      kick();
+    }
+  });
+  kick();
 }
+
+wireControllerBackgroundVideo();
+
+wireKioskStandaloneBanner();

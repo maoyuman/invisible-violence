@@ -2,12 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta http-equiv="Cache-Control" content="no-store" />
+    <meta name="theme-color" content="#050208" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="IV Remote" />
     <title>Language Remote Controller</title>
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="manifest" href="/controller-manifest.webmanifest?v=1" />
+    <link rel="stylesheet" href="styles.css?v=12" />
   </head>
   <body class="controller-page">
+    <!-- Five taps top-right (invisible hit target) toggle fullscreen / show hints — controller.js -->
+    <div
+      id="controller-fs-zone"
+      class="controller-fs-hitzone"
+      aria-label="Fullscreen: tap five times quickly in this corner"
+    ></div>
+    <p id="controller-fs-feedback" class="controller-fs-feedback" role="status"></p>
     <video
       id="bg-video"
       class="controller-bg-video"
@@ -44,6 +63,26 @@
         style="display: none; max-width: 92vw; margin-left: auto; margin-right: auto"
       ></p>
     </main>
-    <script src="controller.js?v=7"></script>
+    <aside
+      id="controller-kiosk-banner"
+      class="controller-kiosk-banner"
+      role="note"
+      hidden
+    >
+      <p class="controller-kiosk-banner-text">
+        <strong>iPad / iPhone:</strong> Safari and Chrome <em>cannot</em> hide the tab strip or
+        address bar while you browse inside the browser app.
+        <strong>To hide them,</strong> use
+        <strong>Share → Add to Home Screen</strong>, then open this controller from the new icon.
+      </p>
+      <button
+        id="controller-kiosk-banner-dismiss"
+        type="button"
+        class="controller-kiosk-banner-dismiss"
+      >
+        Got it
+      </button>
+    </aside>
+    <script src="controller.js?v=16"></script>
   </body>
 </html>
